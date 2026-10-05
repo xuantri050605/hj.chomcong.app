@@ -1,15 +1,13 @@
-name: Production CI/CD & Security Hardening Pipeline
+name: Production CI/CD & GitHub Pages Pipeline
 
 on:
   push:
-    branches: [ main, master ]
-  pull_request:
-    branches: [ main, master ]
+    branches: [ main ]
   workflow_dispatch:
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: "pages"
+  cancel-in-progress: false
 
 permissions:
   contents: read
@@ -66,31 +64,27 @@ jobs:
           path: web-build/
           retention-days: 14
 
+      - name: Upload Single GitHub Pages Artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: web-build/
+
   deploy-production:
-    name: Automated Production Deployment
+    name: Automated GitHub Pages Deployment
     needs: validate-and-build
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
     steps:
-      - name: Checkout Codebase
-        uses: actions/checkout@v4
-
-      - name: Download Production Web Build
-        uses: actions/download-artifact@v4
-        with:
-          name: production-web-build
-          path: web-build/
-
-      - name: Deploy to GitHub Pages (Fallback / Direct Static Web Hosting)
-        if: env.VERCEL_TOKEN == ''
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: web-build/
-
-      - name: Publish to GitHub Pages
-        if: env.VERCEL_TOKEN == ''
-        uses: actions/deploy-pages@v4
+      - name: Deploy to GitHub Pages
         id: deployment
-
+        uses: actions/deploy-pages@v4
