@@ -15,6 +15,7 @@ import AttendanceStatusCard from '../components/AttendanceStatusCard';
 import Card from '../components/Card';
 import Button from '../components/Button';
 import { useAttendanceStore } from '../store/attendanceStore';
+import { useGeofenceStore } from '../store/geofenceStore';
 import { localDateKey, weekdayForDateKey } from '../utils/monthUtils';
 import { buildCalendarDays } from '../engine/calendarProjection';
 import { normalizeTimeInput } from '../engine/timeCalculator';
@@ -48,8 +49,18 @@ const choiceFor = (item: any): DayChoice =>
 export default function AttendanceScreen() {
   const { items, month, addManual, editAttendance, remove, clockIn, clockOut, selectMonth } =
     useAttendanceStore();
+  const { pendingEvents, confirmEvent, dismissEvent, initGeofence } = useGeofenceStore();
   const [editing, setEditing] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    void initGeofence();
+  }, []);
+
+  const activePendingEvents = useMemo(
+    () => pendingEvents.filter((e) => e.status === 'PENDING'),
+    [pendingEvents]
+  );
 
   const calendarDays = useMemo(() => buildCalendarDays(month, items), [month, items]);
   const today = localDateKey(new Date());
@@ -141,6 +152,8 @@ export default function AttendanceScreen() {
     ? {
         mode: 'working',
         start: todayRec.shift.start,
+        source: todayRec.timeSource,
+        gpsMetadata: todayRec.gpsMetadata,
         onClockOut: () => void clockOut(),
       }
     : {
@@ -149,6 +162,7 @@ export default function AttendanceScreen() {
         end: todayRec.shift.end,
         durationLabel: 'Hoàn tất',
         source: todayRec.timeSource,
+        gpsMetadata: todayRec.gpsMetadata,
         onView: () => setEditing(todayRec),
       };
 
@@ -171,6 +185,60 @@ export default function AttendanceScreen() {
 
       {/* Month Selector */}
       <MonthSelector month={month} onChange={changeMonth} />
+
+      {/* Pending Geofence Events Banner */}
+      {activePendingEvents.map((evt) => {
+        const isCheckIn = evt.type === 'CHECK_IN';
+        return (
+          <Card key={evt.id} style={styles.pendingEventCard}>
+            <View style={styles.pendingHeaderRow}>
+              <View
+                style={[
+                  styles.pendingIconBox,
+                  isCheckIn ? styles.checkInIconBox : styles.checkOutIconBox,
+                ]}
+              >
+                <Ionicons
+                  name={isCheckIn ? 'location' : 'exit'}
+                  size={20}
+                  color={isCheckIn ? theme.colors.primary : theme.colors.warningDark}
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.pendingTitle}>
+                  {isCheckIn ? 'ĐÃ ĐẾN KHU VỰC CÔNG TY' : 'BẠN ĐÃ RỜI CÔNG TY'}
+                </Text>
+                <Text style={styles.pendingDesc}>
+                  Phát hiện lúc {evt.timeString} • Cách {evt.distanceFromCompany}m (±{evt.accuracy}m)
+                </Text>
+                <Text style={styles.pendingPrompt}>
+                  {isCheckIn
+                    ? 'Bạn có muốn xác nhận chấm công giờ vào ca?'
+                    : 'Bạn có muốn xác nhận chấm công giờ ra ca?'}
+                </Text>
+              </View>
+            </View>
+            <View style={styles.pendingActionsRow}>
+              <Button
+                title="XÁC NHẬN"
+                variant="primary"
+                size="sm"
+                icon={<Ionicons name="checkmark-sharp" size={16} color={theme.colors.white} />}
+                onPress={() => void confirmEvent(evt.id)}
+                style={{ flex: 1 }}
+              />
+              <Button
+                title="BỎ QUA"
+                variant="secondary"
+                size="sm"
+                icon={<Ionicons name="close-sharp" size={16} color={theme.colors.slate600} />}
+                onPress={() => void dismissEvent(evt.id)}
+                style={{ flex: 1 }}
+              />
+            </View>
+          </Card>
+        );
+      })}
 
       {/* Status Card (Live Clock & Action) */}
       <AttendanceStatusCard state={status as any} />
@@ -429,6 +497,61 @@ export default function AttendanceScreen() {
                   />
                 </View>
               </View>
+
+              {/* Source & GPS Metadata if available */}
+              {editing?.timeSource && (
+                <View style={styles.sourceInfoBox}>
+                  <View style={styles.sourceHeaderRow}>
+                    <Ionicons
+                      name={
+                        editing.timeSource === 'GEOFENCE_CONFIRMED'
+                          ? 'location'
+                          : editing.timeSource === 'DEVICE'
+                          ? 'phone-portrait-outline'
+                          : 'create-outline'
+                      }
+                      size={16}
+                      color={
+                        editing.timeSource === 'GEOFENCE_CONFIRMED'
+                          ? theme.colors.successDark
+                          : theme.colors.primary
+                      }
+                    />
+                    <Text
+                      style={[
+                        styles.sourceTitle,
+                        editing.timeSource === 'GEOFENCE_CONFIRMED' && { color: theme.colors.successDark },
+                      ]}
+                    >
+                      {editing.timeSource === 'GEOFENCE_CONFIRMED'
+                        ? 'Xác thực: GPS Geofence (Đã xác nhận)'
+                        : editing.timeSource === 'DEVICE'
+                        ? 'Xác thực: Bấm trên thiết bị'
+                        : 'Xác thực: Nhập thủ công'}
+                    </Text>
+                  </View>
+                  {editing.gpsMetadata && (
+                    <View style={styles.gpsMetaContainer}>
+                      <Text style={styles.gpsMetaItem}>
+                        • Khoảng cách: {editing.gpsMetadata.distance ?? '--'}m
+                      </Text>
+                      <Text style={styles.gpsMetaItem}>
+                        • Sai số GPS: ±{editing.gpsMetadata.accuracy ?? '--'}m
+                      </Text>
+                      {editing.gpsMetadata.latitude && editing.gpsMetadata.longitude && (
+                        <Text style={styles.gpsMetaItem}>
+                          • Tọa độ: {editing.gpsMetadata.latitude.toFixed(5)}, {editing.gpsMetadata.longitude.toFixed(5)}
+                        </Text>
+                      )}
+                    </View>
+                  )}
+                  {editing.originalTimeSource && (
+                    <Text style={styles.originalSourceText}>
+                      Nguồn gốc ban đầu: {editing.originalTimeSource}
+                    </Text>
+                  )}
+                </View>
+              )}
 
               {/* Action Buttons */}
               <View style={styles.modalActionGroup}>
@@ -782,5 +905,86 @@ const styles = StyleSheet.create({
     color: theme.colors.danger,
     fontWeight: '800',
     fontSize: 13,
+  },
+  pendingEventCard: {
+    padding: 16,
+    borderRadius: theme.radius.lg,
+    borderWidth: 1.5,
+    borderColor: theme.colors.primary,
+    backgroundColor: '#F0F9FF',
+    gap: 12,
+  },
+  pendingHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  pendingIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkInIconBox: {
+    backgroundColor: theme.colors.primarySoft,
+  },
+  checkOutIconBox: {
+    backgroundColor: theme.colors.warningSoft,
+  },
+  pendingTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: theme.colors.slate900,
+    letterSpacing: 0.3,
+  },
+  pendingDesc: {
+    fontSize: 12,
+    color: theme.colors.slate600,
+    marginTop: 2,
+  },
+  pendingPrompt: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: theme.colors.primaryDark,
+    marginTop: 4,
+  },
+  pendingActionsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 4,
+  },
+  sourceInfoBox: {
+    backgroundColor: theme.colors.slate50,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: theme.radius.md,
+    padding: 12,
+    gap: 6,
+  },
+  sourceHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  sourceTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: theme.colors.slate800,
+  },
+  gpsMetaContainer: {
+    paddingLeft: 4,
+    gap: 2,
+    marginTop: 2,
+  },
+  gpsMetaItem: {
+    fontSize: 11,
+    color: theme.colors.slate600,
+  },
+  originalSourceText: {
+    fontSize: 11,
+    fontStyle: 'italic',
+    color: theme.colors.slate500,
+    marginTop: 2,
   },
 });

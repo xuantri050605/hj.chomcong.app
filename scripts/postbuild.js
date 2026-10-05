@@ -109,6 +109,11 @@ function normalizeHtmlContent(html, subpath = EXPECTED_SUBPATH) {
     result = result.replace(/<title>.*?<\/title>/, '<title>Chấm Công & Bảng Lương</title>');
   }
 
+  // 6. Ensure favicon and apple-touch-icon links
+  if (!result.includes('rel="icon"') && !result.includes('rel="shortcut icon"')) {
+    result = result.replace('</head>', `<link rel="icon" type="image/png" href="${cleanSubpath}/favicon.png"/><link rel="apple-touch-icon" href="${cleanSubpath}/icon-192.png"/></head>`);
+  }
+
   return result;
 }
 
@@ -130,7 +135,20 @@ function normalizeManifest(manifest, subpath = EXPECTED_SUBPATH) {
     normalized.scope = normalizeSubpathUrl(normalized.scope, subpath);
   }
 
-  if (Array.isArray(normalized.icons)) {
+  if (!Array.isArray(normalized.icons) || normalized.icons.length === 0) {
+    normalized.icons = [
+      {
+        src: `${subpath}icon-192.png`,
+        sizes: '192x192',
+        type: 'image/png',
+      },
+      {
+        src: `${subpath}icon-512.png`,
+        sizes: '512x512',
+        type: 'image/png',
+      },
+    ];
+  } else {
     normalized.icons = normalized.icons.map((icon) => {
       if (icon && typeof icon.src === 'string') {
         return {
@@ -238,6 +256,18 @@ function runPostbuild() {
   }
 
   const buildTimestamp = new Date().toISOString();
+
+  // Copy icon assets from assets/ if available
+  const srcAssetsDir = path.join(__dirname, '..', 'assets');
+  if (fs.existsSync(srcAssetsDir)) {
+    const iconFiles = ['favicon.png', 'icon.png', 'icon-192.png', 'icon-512.png', 'adaptive-icon.png'];
+    for (const iconFile of iconFiles) {
+      const srcIcon = path.join(srcAssetsDir, iconFile);
+      if (fs.existsSync(srcIcon)) {
+        fs.copyFileSync(srcIcon, path.join(targetDir, iconFile));
+      }
+    }
+  }
 
   // 1. Sanitize & normalize index.html
   const indexPath = path.join(targetDir, 'index.html');

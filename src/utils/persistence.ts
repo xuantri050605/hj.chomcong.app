@@ -1,7 +1,13 @@
 // Persistence adapter: uses expo-sqlite at runtime, falls back to in-memory for tests/node.
 import type { DayAttendance } from '../engine/attendanceCalculator';
 import { DEFAULT_CONFIG, type PayrollBreakdown, type SalaryConfig } from '../engine/payrollCalculator';
-import { sanitizeDayAttendance, sanitizeSalaryConfig } from './securityValidator';
+import type { CompanyLocationConfig, PendingAttendanceEvent } from '../types/geofence';
+import {
+  sanitizeCompanyLocationConfig,
+  sanitizeDayAttendance,
+  sanitizePendingAttendanceEvent,
+  sanitizeSalaryConfig,
+} from './securityValidator';
 
 type AttendanceRow = DayAttendance & { id: string };
 
@@ -55,6 +61,28 @@ class InMemoryStorage {
 
   async deleteAttendance(month: string) {
     this.attendances.delete(month);
+  }
+
+  locationConfig: CompanyLocationConfig | null = null;
+  pendingEvents: PendingAttendanceEvent[] = [];
+
+  async saveCompanyLocation(cfg: CompanyLocationConfig) {
+    this.locationConfig = sanitizeCompanyLocationConfig(cfg);
+  }
+
+  async loadCompanyLocation(): Promise<CompanyLocationConfig | null> {
+    return this.locationConfig ? { ...this.locationConfig } : null;
+  }
+
+  async savePendingEvents(events: PendingAttendanceEvent[]) {
+    const valid = events
+      .map(sanitizePendingAttendanceEvent)
+      .filter((e): e is PendingAttendanceEvent => e !== null);
+    this.pendingEvents = valid;
+  }
+
+  async loadPendingEvents(): Promise<PendingAttendanceEvent[]> {
+    return [...this.pendingEvents];
   }
 }
 
@@ -162,6 +190,50 @@ class WebStorageAdapter {
       localStorage.removeItem(this.getKey('attendance', month));
     } catch {
       // ignore
+    }
+  }
+
+  async saveCompanyLocation(cfg: CompanyLocationConfig) {
+    try {
+      const sanitized = sanitizeCompanyLocationConfig(cfg);
+      localStorage.setItem(this.getKey('location', 'company'), JSON.stringify(sanitized));
+    } catch {
+      // Storage quota or serialization safety
+    }
+  }
+
+  async loadCompanyLocation(): Promise<CompanyLocationConfig | null> {
+    try {
+      const data = localStorage.getItem(this.getKey('location', 'company'));
+      if (!data) return null;
+      return sanitizeCompanyLocationConfig(JSON.parse(data));
+    } catch {
+      return null;
+    }
+  }
+
+  async savePendingEvents(events: PendingAttendanceEvent[]) {
+    try {
+      const valid = events
+        .map(sanitizePendingAttendanceEvent)
+        .filter((e): e is PendingAttendanceEvent => e !== null);
+      localStorage.setItem(this.getKey('events', 'pending'), JSON.stringify(valid));
+    } catch {
+      // Storage quota or serialization safety
+    }
+  }
+
+  async loadPendingEvents(): Promise<PendingAttendanceEvent[]> {
+    try {
+      const data = localStorage.getItem(this.getKey('events', 'pending'));
+      if (!data) return [];
+      const parsed = JSON.parse(data);
+      if (!Array.isArray(parsed)) return [];
+      return parsed
+        .map(sanitizePendingAttendanceEvent)
+        .filter((e): e is PendingAttendanceEvent => e !== null);
+    } catch {
+      return [];
     }
   }
 }
@@ -308,6 +380,59 @@ export async function initPersistence() {
           }, () => resolve(), () => resolve());
         });
       },
+      async saveCompanyLocation(cfg: CompanyLocationConfig) {
+        const sanitized = sanitizeCompanyLocationConfig(cfg);
+        await new Promise<void>((resolve) => {
+          db.transaction((tx: any) => {
+            tx.executeSql(`CREATE TABLE IF NOT EXISTS company_location (key TEXT PRIMARY KEY, data TEXT);`, []);
+            tx.executeSql(`INSERT OR REPLACE INTO company_location (key, data) values (?,?);`, ['company', JSON.stringify(sanitized)]);
+          }, () => resolve(), () => resolve());
+        });
+      },
+      async loadCompanyLocation(): Promise<CompanyLocationConfig | null> {
+        return await new Promise<CompanyLocationConfig | null>((resolve) => {
+          db.transaction((tx: any) => {
+            tx.executeSql(`CREATE TABLE IF NOT EXISTS company_location (key TEXT PRIMARY KEY, data TEXT);`, []);
+            tx.executeSql(`SELECT data FROM company_location WHERE key = ?;`, ['company'], (_: any, result: any) => {
+              if (result.rows.length === 0) return resolve(null);
+              try {
+                const item = JSON.parse(result.rows.item(0).data);
+                resolve(sanitizeCompanyLocationConfig(item));
+              } catch {
+                resolve(null);
+              }
+            }, () => resolve(null));
+          });
+        });
+      },
+      async savePendingEvents(events: PendingAttendanceEvent[]) {
+        const valid = events
+          .map(sanitizePendingAttendanceEvent)
+          .filter((e): e is PendingAttendanceEvent => e !== null);
+        await new Promise<void>((resolve) => {
+          db.transaction((tx: any) => {
+            tx.executeSql(`CREATE TABLE IF NOT EXISTS pending_events (key TEXT PRIMARY KEY, data TEXT);`, []);
+            tx.executeSql(`INSERT OR REPLACE INTO pending_events (key, data) values (?,?);`, ['pending', JSON.stringify(valid)]);
+          }, () => resolve(), () => resolve());
+        });
+      },
+      async loadPendingEvents(): Promise<PendingAttendanceEvent[]> {
+        return await new Promise<PendingAttendanceEvent[]>((resolve) => {
+          db.transaction((tx: any) => {
+            tx.executeSql(`CREATE TABLE IF NOT EXISTS pending_events (key TEXT PRIMARY KEY, data TEXT);`, []);
+            tx.executeSql(`SELECT data FROM pending_events WHERE key = ?;`, ['pending'], (_: any, result: any) => {
+              if (result.rows.length === 0) return resolve([]);
+              try {
+                const item = JSON.parse(result.rows.item(0).data);
+                if (!Array.isArray(item)) return resolve([]);
+                resolve(item.map(sanitizePendingAttendanceEvent).filter((e): e is PendingAttendanceEvent => e !== null));
+              } catch {
+                resolve([]);
+              }
+            }, () => resolve([]));
+          });
+        });
+      },
     };
     await adapter.init();
     return adapter;
@@ -370,6 +495,26 @@ export async function deleteAttendance(month: string) {
   return a.deleteAttendance(month);
 }
 
+export async function saveCompanyLocation(cfg: CompanyLocationConfig) {
+  const a = await initPersistence();
+  return a.saveCompanyLocation(cfg);
+}
+
+export async function loadCompanyLocation(): Promise<CompanyLocationConfig | null> {
+  const a = await initPersistence();
+  return a.loadCompanyLocation();
+}
+
+export async function savePendingEvents(events: PendingAttendanceEvent[]) {
+  const a = await initPersistence();
+  return a.savePendingEvents(events);
+}
+
+export async function loadPendingEvents(): Promise<PendingAttendanceEvent[]> {
+  const a = await initPersistence();
+  return a.loadPendingEvents();
+}
+
 export default {
   initPersistence,
   saveAttendance,
@@ -379,5 +524,10 @@ export default {
   savePayroll,
   loadPayroll,
   listMonths,
+  saveCompanyLocation,
+  loadCompanyLocation,
+  savePendingEvents,
+  loadPendingEvents,
 };
+
 

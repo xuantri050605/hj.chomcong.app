@@ -1,7 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, ScrollView, StyleSheet, Alert, TouchableOpacity } from 'react-native';
+import {
+  View,
+  Text,
+  TextInput,
+  ScrollView,
+  StyleSheet,
+  Alert,
+  TouchableOpacity,
+  Switch,
+  ActivityIndicator,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSalaryStore } from '../store/salaryStore';
+import { useGeofenceStore } from '../store/geofenceStore';
 import { formatVND } from '../utils/format';
 import Card from '../components/Card';
 import Button from '../components/Button';
@@ -16,10 +27,21 @@ import {
 
 export default function SalaryConfig() {
   const { config, setConfig, resetDefaults, loadConfig } = useSalaryStore();
+  const {
+    config: geoConfig,
+    status: geoStatus,
+    updateConfig: updateGeoConfig,
+    fetchCurrentLocation,
+    initGeofence,
+  } = useGeofenceStore();
+
   const [local, setLocal] = useState(config);
+  const [localGeo, setLocalGeo] = useState(geoConfig);
+  const [fetchingGps, setFetchingGps] = useState(false);
 
   useEffect(() => {
     void loadConfig();
+    void initGeofence();
     setLocal(config);
   }, []);
 
@@ -27,11 +49,41 @@ export default function SalaryConfig() {
     setLocal(config);
   }, [config]);
 
+  useEffect(() => {
+    setLocalGeo(geoConfig);
+  }, [geoConfig]);
+
+  const handleGetCurrentLocation = async () => {
+    setFetchingGps(true);
+    try {
+      const coords = await fetchCurrentLocation();
+      if (coords) {
+        setLocalGeo((prev) => ({
+          ...prev,
+          latitude: coords.latitude,
+          longitude: coords.longitude,
+        }));
+        Alert.alert(
+          'Đã lấy tọa độ GPS',
+          `Vĩ độ: ${coords.latitude.toFixed(6)}\nKinh độ: ${coords.longitude.toFixed(6)}\nĐộ chính xác: ±${coords.accuracy ? coords.accuracy.toFixed(1) : 0}m`
+        );
+      } else {
+        Alert.alert('Không thể lấy vị trí', 'Vui lòng kiểm tra quyền truy cập vị trí và bật định vị GPS trên máy.');
+      }
+    } finally {
+      setFetchingGps(false);
+    }
+  };
+
   const save = async () => {
     const sanitized = sanitizeSalaryConfig(local, DEFAULT_CONFIG);
     await setConfig(sanitized);
     setLocal(sanitized);
-    Alert.alert('Thành công', 'Đã lưu cấu hình lương mới thành công!');
+
+    // Save company location & geofence settings
+    await updateGeoConfig(localGeo);
+
+    Alert.alert('Thành công', 'Đã lưu cấu hình lương và vị trí công ty thành công!');
   };
 
   const handleReset = () => {
@@ -246,6 +298,152 @@ export default function SalaryConfig() {
         </View>
       </Card>
 
+      {/* GROUP 4: VỊ TRÍ CÔNG TY & GPS GEOFENCING */}
+      <Card style={styles.sectionCard}>
+        <View style={styles.cardHeader}>
+          <View style={styles.headerLeft}>
+            <View style={[styles.headerIconBox, { backgroundColor: theme.colors.successSoft }]}>
+              <Ionicons name="location" size={18} color={theme.colors.successDark} />
+            </View>
+            <View>
+              <Text style={styles.sectionTitle}>VỊ TRÍ CÔNG TY & GPS GEOFENCING</Text>
+              <Text style={styles.sectionSub}>Xác định ranh giới nhận diện đến/rời công ty</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Toggle Switch */}
+        <View style={styles.toggleRow}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.toggleTitle}>Kích hoạt GPS Geofencing</Text>
+            <Text style={styles.toggleSub}>
+              Nhận diện tự động và hiển thị thông báo để bạn bấm xác nhận
+            </Text>
+          </View>
+          <Switch
+            value={localGeo.enabled}
+            onValueChange={(val) => setLocalGeo({ ...localGeo, enabled: val })}
+            trackColor={{ false: theme.colors.slate300, true: theme.colors.successSoft }}
+            thumbColor={localGeo.enabled ? theme.colors.successDark : theme.colors.slate400}
+          />
+        </View>
+
+        {/* Lat & Lon Inputs */}
+        <View style={styles.fieldGroup}>
+          <Text style={styles.fieldLabel}>TỌA ĐỘ VĨ ĐỘ (LATITUDE)</Text>
+          <View style={styles.inputContainer}>
+            <TextInput
+              style={styles.input}
+              value={String(localGeo.latitude || '')}
+              onChangeText={(t) => {
+                const num = parseFloat(t);
+                if (!Number.isNaN(num)) setLocalGeo({ ...localGeo, latitude: num });
+              }}
+              keyboardType="decimal-pad"
+            />
+          </View>
+        </View>
+
+        <View style={[styles.fieldGroup, { marginTop: 10 }]}>
+          <Text style={styles.fieldLabel}>TỌA ĐỘ KINH ĐỘ (LONGITUDE)</Text>
+          <View style={styles.inputContainer}>
+            <TextInput
+              style={styles.input}
+              value={String(localGeo.longitude || '')}
+              onChangeText={(t) => {
+                const num = parseFloat(t);
+                if (!Number.isNaN(num)) setLocalGeo({ ...localGeo, longitude: num });
+              }}
+              keyboardType="decimal-pad"
+            />
+          </View>
+        </View>
+
+        {/* Get Current Location Button */}
+        <TouchableOpacity
+          style={styles.gpsGetBtn}
+          activeOpacity={0.7}
+          onPress={handleGetCurrentLocation}
+          disabled={fetchingGps}
+        >
+          {fetchingGps ? (
+            <ActivityIndicator size="small" color={theme.colors.primary} />
+          ) : (
+            <Ionicons name="navigate-outline" size={18} color={theme.colors.primary} />
+          )}
+          <Text style={styles.gpsGetBtnText}>
+            {fetchingGps ? 'Đang lấy vị trí hiện tại...' : 'Lấy vị trí hiện tại của thiết bị'}
+          </Text>
+        </TouchableOpacity>
+
+        {/* Radius Selector */}
+        <View style={[styles.fieldGroup, { marginTop: 14 }]}>
+          <Text style={styles.fieldLabel}>BÁN KÍNH NHẬN DIỆN (100m – 500m)</Text>
+          <View style={styles.radiusChipsRow}>
+            {[100, 150, 200, 300, 500].map((r) => {
+              const selected = localGeo.radius === r;
+              return (
+                <TouchableOpacity
+                  key={r}
+                  style={[styles.radiusChip, selected && styles.radiusChipSelected]}
+                  activeOpacity={0.7}
+                  onPress={() => setLocalGeo({ ...localGeo, radius: r })}
+                >
+                  <Text style={[styles.radiusChipText, selected && styles.radiusChipTextSelected]}>
+                    {r}m
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+          <Text style={styles.previewText}>
+            Bán kính mặc định 150m. Chỉ tạo thông báo khi bạn vào trong hoặc rời khỏi phạm vi này.
+          </Text>
+        </View>
+
+        {/* Live GPS Telemetry Box */}
+        <View style={styles.telemetryBox}>
+          <View style={styles.telemetryHeader}>
+            <Ionicons name="radio-outline" size={16} color={theme.colors.primary} />
+            <Text style={styles.telemetryTitle}>TRẠNG THÁI GPS THỰC TẾ</Text>
+          </View>
+
+          <View style={styles.telemetryRow}>
+            <Text style={styles.telemetryLabel}>Khoảng cách tới công ty:</Text>
+            <Text style={styles.telemetryValue}>
+              {geoStatus.currentDistance !== null ? `${geoStatus.currentDistance} mét` : 'Chưa đo'}
+            </Text>
+          </View>
+
+          <View style={styles.telemetryRow}>
+            <Text style={styles.telemetryLabel}>Vị trí so với vùng chấm công:</Text>
+            <Text
+              style={[
+                styles.telemetryValue,
+                { color: geoStatus.isInside ? theme.colors.successDark : theme.colors.slate600 },
+              ]}
+            >
+              {geoStatus.currentDistance === null
+                ? 'Chưa xác định'
+                : geoStatus.isInside
+                ? 'Đang ở trong khu vực công ty'
+                : 'Ở ngoài khu vực công ty'}
+            </Text>
+          </View>
+
+          <View style={styles.telemetryRow}>
+            <Text style={styles.telemetryLabel}>Quyền vị trí:</Text>
+            <Text style={styles.telemetryValue}>
+              {geoStatus.locationPermission === 'granted'
+                ? 'Đã cấp'
+                : geoStatus.locationPermission === 'denied'
+                ? 'Bị từ chối'
+                : 'Chưa cấp'}
+            </Text>
+          </View>
+        </View>
+      </Card>
+
       {/* Actions */}
       <View style={styles.actionGroup}>
         <Button
@@ -421,6 +619,104 @@ const styles = StyleSheet.create({
 
   actionGroup: {
     marginTop: 6,
+  },
+  toggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+    marginBottom: 8,
+  },
+  toggleTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: theme.colors.slate800,
+  },
+  toggleSub: {
+    fontSize: 11,
+    color: theme.colors.slate500,
+    marginTop: 2,
+  },
+  gpsGetBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: theme.colors.primarySoft,
+    paddingVertical: 11,
+    borderRadius: theme.radius.md,
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: theme.colors.primaryBorder,
+  },
+  gpsGetBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: theme.colors.primaryDark,
+  },
+  radiusChipsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  radiusChip: {
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: theme.radius.full,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.slate50,
+  },
+  radiusChipSelected: {
+    backgroundColor: theme.colors.primarySoft,
+    borderColor: theme.colors.primary,
+  },
+  radiusChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: theme.colors.slate600,
+  },
+  radiusChipTextSelected: {
+    color: theme.colors.primary,
+    fontWeight: '800',
+  },
+  telemetryBox: {
+    backgroundColor: theme.colors.slate50,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: theme.radius.md,
+    padding: 12,
+    marginTop: 12,
+    gap: 6,
+  },
+  telemetryHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 2,
+  },
+  telemetryTitle: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: theme.colors.slate800,
+    letterSpacing: 0.5,
+  },
+  telemetryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 2,
+  },
+  telemetryLabel: {
+    fontSize: 11,
+    color: theme.colors.slate500,
+  },
+  telemetryValue: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: theme.colors.slate800,
   },
 });
 

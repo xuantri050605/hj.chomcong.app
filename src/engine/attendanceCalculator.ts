@@ -14,10 +14,18 @@ export type DayAttendance = {
   // Persisted UI/domain alias. leaveType remains the payroll engine's source.
   leaveCode?: 'PN' | 'UNPAID' | 'OTHER' | null;
   note?: string | null;
-  // source of the time entry: DEVICE when clocked by device, MANUAL when entered by user
-  timeSource?: 'DEVICE' | 'MANUAL';
-  // if a DEVICE record is later edited manually, record original source
-  originalTimeSource?: 'DEVICE' | 'MANUAL' | null;
+  // source of the time entry: DEVICE, MANUAL, or GEOFENCE_CONFIRMED
+  timeSource?: 'DEVICE' | 'MANUAL' | 'GEOFENCE_CONFIRMED';
+  // if an automated record is later edited manually, record original source
+  originalTimeSource?: 'DEVICE' | 'MANUAL' | 'GEOFENCE_CONFIRMED' | null;
+  // GPS metadata when confirmed via geofencing
+  gpsMetadata?: {
+    accuracy?: number;
+    distance?: number;
+    timestamp?: string;
+    latitude?: number;
+    longitude?: number;
+  } | null;
   // audit
   createdAt?: string | null; // ISO timestamp
   updatedAt?: string | null; // ISO timestamp

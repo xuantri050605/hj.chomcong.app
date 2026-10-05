@@ -57,6 +57,19 @@ export default function App() {
     };
   }, []);
 
+  useEffect(() => {
+    if (Platform.OS === 'web' && typeof document !== 'undefined') {
+      document.documentElement.style.height = '100%';
+      document.body.style.height = '100%';
+      document.body.style.overflow = 'hidden';
+      const rootEl = document.getElementById('root');
+      if (rootEl) {
+        rootEl.style.height = '100%';
+        rootEl.style.overflow = 'hidden';
+      }
+    }
+  }, []);
+
   const items = [
     { key: 'Dashboard', label: 'Tổng quan' },
     { key: 'Attendance', label: 'Chấm công' },
@@ -129,15 +142,28 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: theme.colors.background,
+    ...Platform.select({
+      web: {
+        height: '100vh' as any,
+        maxHeight: '100vh' as any,
+        overflow: 'hidden',
+      },
+      default: {
+        height: '100%',
+      },
+    }),
   },
   container: {
     flex: 1,
+    width: '100%',
     alignItems: 'center',
     backgroundColor: theme.colors.background,
+    overflow: 'hidden',
   },
   content: {
     flex: 1,
     width: '100%',
+    overflow: 'hidden',
   },
   backNav: {
     flexDirection: 'row',

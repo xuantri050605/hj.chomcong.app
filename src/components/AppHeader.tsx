@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, Platform } from 'react-native';
+import { View, Text, StyleSheet, Platform, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../theme/theme';
 
@@ -9,34 +9,38 @@ export default function AppHeader({ title, user }: { title: string; user?: strin
 
   return (
     <View style={styles.header}>
-      {/* Brand logo & name */}
-      <View style={styles.brandContainer}>
-        <View style={styles.logoBadge}>
-          <Ionicons name="time" size={20} color={theme.colors.white} />
+      <View style={styles.headerInner}>
+        {/* Brand logo & name */}
+        <View style={styles.brandContainer}>
+          <Image
+            source={require('../../assets/icon.png')}
+            style={styles.logoImage}
+            resizeMode="cover"
+          />
+          <View>
+            <View style={styles.titleRow}>
+              <Text style={styles.brandTitle}>CHẤM CÔNG</Text>
+              <View style={styles.proBadge}>
+                <Text style={styles.proText}>PRO</Text>
+              </View>
+            </View>
+            <Text style={styles.brandSubtitle}>Hệ thống chấm công thông minh</Text>
+          </View>
         </View>
-        <View>
-          <View style={styles.titleRow}>
-            <Text style={styles.brandTitle}>CHẤM CÔNG</Text>
-            <View style={styles.proBadge}>
-              <Text style={styles.proText}>PRO</Text>
+
+        {/* User profile capsule */}
+        <View style={styles.userCapsule}>
+          <View style={styles.userInfo}>
+            <Text style={styles.userName} numberOfLines={1}>{userName}</Text>
+            <View style={styles.statusRow}>
+              <View style={styles.onlineDot} />
+              <Text style={styles.statusText}>Đang hoạt động</Text>
             </View>
           </View>
-          <Text style={styles.brandSubtitle}>Hệ thống chấm công thông minh</Text>
-        </View>
-      </View>
-
-      {/* User profile capsule */}
-      <View style={styles.userCapsule}>
-        <View style={styles.userInfo}>
-          <Text style={styles.userName} numberOfLines={1}>{userName}</Text>
-          <View style={styles.statusRow}>
-            <View style={styles.onlineDot} />
-            <Text style={styles.statusText}>Đang hoạt động</Text>
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>{initial}</Text>
+            <View style={styles.avatarBadge} />
           </View>
-        </View>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{initial}</Text>
-          <View style={styles.avatarBadge} />
         </View>
       </View>
     </View>
@@ -46,13 +50,14 @@ export default function AppHeader({ title, user }: { title: string; user?: strin
 const styles = StyleSheet.create({
   header: {
     height: 64,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
+    width: '100%',
     backgroundColor: theme.colors.white,
     borderBottomWidth: 1,
     borderColor: theme.colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+    zIndex: 50,
     ...Platform.select({
       ios: {
         shadowColor: '#000',
@@ -65,13 +70,31 @@ const styles = StyleSheet.create({
       },
       web: {
         boxShadow: '0 2px 8px rgba(0,0,0,0.03)',
+        position: 'sticky' as any,
+        top: 0,
       },
     }),
+  },
+  headerInner: {
+    maxWidth: 1200,
+    width: '100%',
+    height: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
   },
   brandContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
+  },
+  logoImage: {
+    width: 38,
+    height: 38,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.06)',
   },
   logoBadge: {
     width: 38,

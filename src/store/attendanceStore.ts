@@ -16,8 +16,8 @@ type AttendanceState = {
   addOrUpdate: (item: DayAttendance) => void;
   remove: (date: string) => Promise<void>;
   // device/manual clock API
-  clockIn: (now?: Date) => Promise<void>;
-  clockOut: (now?: Date) => Promise<void>;
+  clockIn: (now?: Date, source?: 'DEVICE' | 'MANUAL' | 'GEOFENCE_CONFIRMED', gpsMetadata?: DayAttendance['gpsMetadata']) => Promise<void>;
+  clockOut: (now?: Date, source?: 'DEVICE' | 'MANUAL' | 'GEOFENCE_CONFIRMED', gpsMetadata?: DayAttendance['gpsMetadata']) => Promise<void>;
   addManual: (item: DayAttendance) => Promise<void>;
   editAttendance: (date: string, patch: Partial<DayAttendance>) => Promise<void>;
 };
@@ -43,7 +43,11 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
     await saveAttendance(month, items as EngineDayAttendance[]);
   },
   // clock in: create or update today's attendance with start time
-  clockIn: async (now?: Date) => {
+  clockIn: async (
+    now?: Date,
+    source: 'DEVICE' | 'MANUAL' | 'GEOFENCE_CONFIRMED' = 'DEVICE',
+    gpsMetadata?: DayAttendance['gpsMetadata']
+  ) => {
     const n = now || new Date();
     const date = localDateKey(n);
     const hh = localTimeKey(n);
@@ -56,21 +60,41 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
         if (existing.shift && existing.shift.start && (!existing.shift.end || existing.shift.end === '')) {
           return s; // no change
         }
-        const updated: DayAttendance = { ...existing, shift: { ...(existing.shift||{}) , start: hh }, timeSource: 'DEVICE', createdAt: existing.createdAt || iso, updatedAt: iso };
+        const updated: DayAttendance = {
+          ...existing,
+          shift: { ...(existing.shift||{}) , start: hh },
+          timeSource: source,
+          gpsMetadata: gpsMetadata || existing.gpsMetadata,
+          createdAt: existing.createdAt || iso,
+          updatedAt: iso
+        };
         const arr = [...s.items]; arr[idx] = updated;
         // persist
         void saveAttendance(s.month, arr as EngineDayAttendance[]);
         return { items: arr };
       }
       const dayOfWeek = weekdayForDateKey(date);
-      const newRec: DayAttendance = { date, dayOfWeek, dayType: 'NORMAL', shift: { start: hh, end: undefined }, timeSource: 'DEVICE', createdAt: iso, updatedAt: iso };
+      const newRec: DayAttendance = {
+        date,
+        dayOfWeek,
+        dayType: 'NORMAL',
+        shift: { start: hh, end: undefined },
+        timeSource: source,
+        gpsMetadata: gpsMetadata || null,
+        createdAt: iso,
+        updatedAt: iso
+      };
       const arr = [...s.items, newRec];
       void saveAttendance(s.month, arr as EngineDayAttendance[]);
       return { items: arr };
     });
   },
   // clock out: set end time for today's attendance if clocked in
-  clockOut: async (now?: Date) => {
+  clockOut: async (
+    now?: Date,
+    source: 'DEVICE' | 'MANUAL' | 'GEOFENCE_CONFIRMED' = 'DEVICE',
+    gpsMetadata?: DayAttendance['gpsMetadata']
+  ) => {
     const n = now || new Date();
     const date = localDateKey(n);
     const hh = localTimeKey(n);
@@ -86,7 +110,13 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
       const previousItems = await loadAttendance(previousMonth);
       const previousIndex = previousItems.findIndex((item) => item.date === prevDate && item.shift?.start && !item.shift.end);
       if (previousIndex >= 0) {
-        const updated = { ...previousItems[previousIndex], shift: { ...previousItems[previousIndex].shift, end: hh }, updatedAt: iso } as DayAttendance;
+        const updated = {
+          ...previousItems[previousIndex],
+          shift: { ...previousItems[previousIndex].shift, end: hh },
+          timeSource: source === 'GEOFENCE_CONFIRMED' ? 'GEOFENCE_CONFIRMED' : (previousItems[previousIndex].timeSource || 'DEVICE'),
+          gpsMetadata: gpsMetadata || previousItems[previousIndex].gpsMetadata,
+          updatedAt: iso
+        } as DayAttendance;
         const rows = [...previousItems]; rows[previousIndex] = updated;
         await saveAttendance(previousMonth, rows);
         return;
@@ -98,7 +128,13 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
         const existing = s.items[idx];
         // if already has end, ignore duplicate
         if (existing.shift && existing.shift.end) return s;
-        const updated: DayAttendance = { ...existing, shift: { ...(existing.shift||{}), end: hh }, timeSource: existing.timeSource || 'DEVICE', updatedAt: iso };
+        const updated: DayAttendance = {
+          ...existing,
+          shift: { ...(existing.shift||{}), end: hh },
+          timeSource: source === 'GEOFENCE_CONFIRMED' ? 'GEOFENCE_CONFIRMED' : (existing.timeSource || 'DEVICE'),
+          gpsMetadata: gpsMetadata || existing.gpsMetadata,
+          updatedAt: iso
+        };
         const arr = [...s.items]; arr[idx] = updated;
         void saveAttendance(s.month, arr as EngineDayAttendance[]);
         return { items: arr };
@@ -109,7 +145,13 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
       if (prevIdx >= 0) {
         const prevRec = s.items[prevIdx];
         if (prevRec.shift && prevRec.shift.start && !prevRec.shift.end) {
-          const updated: DayAttendance = { ...prevRec, shift: { ...(prevRec.shift||{}), end: hh }, timeSource: prevRec.timeSource || 'DEVICE', updatedAt: iso };
+          const updated: DayAttendance = {
+            ...prevRec,
+            shift: { ...(prevRec.shift||{}), end: hh },
+            timeSource: source === 'GEOFENCE_CONFIRMED' ? 'GEOFENCE_CONFIRMED' : (prevRec.timeSource || 'DEVICE'),
+            gpsMetadata: gpsMetadata || prevRec.gpsMetadata,
+            updatedAt: iso
+          };
           const arr = [...s.items]; arr[prevIdx] = updated;
           void saveAttendance(s.month, arr as EngineDayAttendance[]);
           return { items: arr };
@@ -118,7 +160,16 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
 
       // create record with start undefined and end set
       const dayOfWeek = weekdayForDateKey(date);
-      const newRec: DayAttendance = { date, dayOfWeek, dayType: 'NORMAL', shift: { start: undefined as any, end: hh }, timeSource: 'DEVICE', createdAt: iso, updatedAt: iso };
+      const newRec: DayAttendance = {
+        date,
+        dayOfWeek,
+        dayType: 'NORMAL',
+        shift: { start: undefined as any, end: hh },
+        timeSource: source,
+        gpsMetadata: gpsMetadata || null,
+        createdAt: iso,
+        updatedAt: iso
+      };
       const arr = [...s.items, newRec];
       void saveAttendance(s.month, arr as EngineDayAttendance[]);
       return { items: arr };

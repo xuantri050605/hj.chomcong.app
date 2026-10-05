@@ -54,247 +54,233 @@ export default function Dashboard({ onOpenAttendance, onOpenPayroll }: Props) {
   ] as const;
 
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-      {/* Greeting Banner */}
-      <View style={styles.greetingCard}>
-        <View style={{ flex: 1 }}>
-          <View style={styles.greetingBadge}>
-            <Ionicons name="star" size={13} color={theme.colors.primary} />
-            <Text style={styles.greetingBadgeText}>Bảng tin chấm công</Text>
-          </View>
-          <Text style={styles.hello}>Xin chào, Trí 👋</Text>
-          <Text style={styles.subhead}>Theo dõi tiến độ công và thu nhập chính xác</Text>
-        </View>
-        <View style={styles.avatarGlow}>
-          <Text style={styles.avatarText}>T</Text>
-        </View>
-      </View>
-
-      {/* Month Selector */}
-      <MonthSelector month={month} onChange={selectMonth} />
-
-      {/* KPI Grid */}
-      <View style={styles.kpis}>
-        <View style={styles.kpiCol}>
-          <StatCard
-            title="NGÀY CÔNG"
-            value={`${workDays} / 26`}
-            subtitle={`${completionPercent}% mục tiêu`}
-            tone={theme.colors.primary}
-            icon={<Ionicons name="calendar" size={16} color={theme.colors.primary} />}
-          />
-        </View>
-        <View style={styles.kpiCol}>
-          <StatCard
-            title="TỔNG GIỜ LÀM"
-            value={`${totalHours}h`}
-            subtitle="Tổng các loại ca"
-            tone={theme.colors.purple}
-            icon={<Ionicons name="time" size={16} color={theme.colors.purple} />}
-          />
-        </View>
-        <View style={styles.kpiCol}>
-          <StatCard
-            title="TĂNG CA (OT)"
-            value={`${totalOtHours}h`}
-            subtitle="Hưởng hệ số OT"
-            tone={theme.colors.warning}
-            icon={<Ionicons name="flame" size={16} color={theme.colors.warning} />}
-          />
-        </View>
-        <View style={styles.kpiCol}>
-          <StatCard
-            title="DỰ KIẾN THỰC LĨNH"
-            value={formatVND(payroll.net)}
-            subtitle="Đã trừ BHXH"
-            small
-            tone={theme.colors.success}
-            icon={<Ionicons name="wallet" size={16} color={theme.colors.success} />}
-          />
-        </View>
-      </View>
-
-      {/* Work Days Progress */}
-      <Card style={styles.sectionCard}>
-        <View style={styles.cardHeader}>
-          <View style={styles.headerLeft}>
-            <View style={[styles.headerIconBox, { backgroundColor: theme.colors.primarySoft }]}>
-              <Ionicons name="trending-up" size={18} color={theme.colors.primary} />
-            </View>
-            <View>
-              <Text style={styles.sectionTitle}>TIẾN ĐỘ CÔNG THÁNG</Text>
-              <Text style={styles.sectionSub}>Kỳ công tiêu chuẩn 26 ngày</Text>
-            </View>
-          </View>
-          <View style={styles.percentPill}>
-            <Text style={styles.percentText}>{completionPercent}%</Text>
-          </View>
-        </View>
-
-        <View style={styles.progressTrack}>
-          <View style={[styles.progressFill, { width: barWidth(workDays, 26) }]} />
-        </View>
-
-        <View style={styles.progressChips}>
-          <View style={styles.chip}>
-            <View style={[styles.chipDot, { backgroundColor: theme.colors.primary }]} />
-            <Text style={styles.chipText}>{summary.worked} ngày đi làm</Text>
-          </View>
-          <View style={styles.chip}>
-            <View style={[styles.chipDot, { backgroundColor: theme.colors.purple }]} />
-            <Text style={styles.chipText}>{summary.pn} phép năm (PN)</Text>
-          </View>
-          <View style={styles.chip}>
-            <View style={[styles.chipDot, { backgroundColor: theme.colors.slate400 }]} />
-            <Text style={styles.chipText}>{summary.rest} ngày nghỉ</Text>
-          </View>
-        </View>
-      </Card>
-
-      {/* Hour Distribution */}
-      <Card style={styles.sectionCard}>
-        <View style={styles.cardHeader}>
-          <View style={styles.headerLeft}>
-            <View style={[styles.headerIconBox, { backgroundColor: theme.colors.purpleSoft }]}>
-              <Ionicons name="pie-chart" size={18} color={theme.colors.purple} />
-            </View>
-            <View>
-              <Text style={styles.sectionTitle}>PHÂN BỔ GIỜ LÀM VIỆC</Text>
-              <Text style={styles.sectionSub}>Tổng cộng {totalHours} giờ được ghi nhận</Text>
-            </View>
-          </View>
-        </View>
-
-        <View style={{ marginTop: 6 }}>
-          {hourRows.map((row) => (
-            <View key={row.label} style={styles.hourRow}>
-              <View style={styles.hourLabelBox}>
-                <Ionicons name={row.icon} size={15} color={row.color} style={{ marginRight: 6 }} />
-                <Text style={styles.hourLabel}>{row.label}</Text>
-              </View>
-              <View style={styles.hourTrack}>
-                <View
-                  style={[
-                    styles.hourFill,
-                    {
-                      width: barWidth(row.value, Math.max(totalHours, 1)),
-                      backgroundColor: row.color,
-                    },
-                  ]}
-                />
-              </View>
-              <Text style={styles.hourValue}>{row.value}h</Text>
-            </View>
-          ))}
-        </View>
-      </Card>
-
-      {/* Recent Activity */}
-      <Card style={styles.sectionCard}>
-        <View style={styles.cardHeader}>
-          <View style={styles.headerLeft}>
-            <View style={[styles.headerIconBox, { backgroundColor: theme.colors.warningSoft }]}>
-              <Ionicons name="list" size={18} color={theme.colors.warning} />
-            </View>
-            <View>
-              <Text style={styles.sectionTitle}>HOẠT ĐỘNG GẦN ĐÂY</Text>
-              <Text style={styles.sectionSub}>5 bản ghi chấm công mới nhất</Text>
-            </View>
-          </View>
-        </View>
-
-        {summary.recent.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <View style={styles.emptyIconBox}>
-              <Ionicons name="calendar-outline" size={32} color={theme.colors.slate300} />
-            </View>
-            <Text style={styles.emptyTitle}>Chưa có dữ liệu chấm công</Text>
-            <Text style={styles.emptySub}>Hãy bắt đầu vào ca hoặc nhập giờ thủ công cho tháng này</Text>
-          </View>
-        ) : (
-          <View style={{ marginTop: 4 }}>
-            {summary.recent.map((item, idx) => {
-              const hours = computeWorkedHours(item);
-              const overtime = computeOvertimeForDay(item);
-              const ot = overtime.ot150 + overtime.ot200 + overtime.ot210;
-
-              const isPN = item.leaveType === 'PN' || item.leaveCode === 'PN';
-              const isUnpaid = item.leaveType === 'UNPAID';
-              const isOther = item.leaveType === 'OTHER';
-              const isHoliday = item.dayType === 'HOLIDAY';
-              const isWeeklyOff = item.dayType === 'WEEKLY_OFF';
-
-              const status = isPN
-                ? 'Nghỉ phép năm (PN)'
-                : isUnpaid
-                ? 'Nghỉ không lương'
-                : isOther
-                ? 'Nghỉ khác'
-                : isHoliday
-                ? 'Nghỉ lễ'
-                : isWeeklyOff
-                ? 'Nghỉ tuần'
-                : item.shift?.start
-                ? `${item.shift.start} → ${item.shift.end || 'Đang làm'}`
-                : 'Chưa có giờ';
-
-              return (
-                <View
-                  key={item.date}
-                  style={[
-                    styles.activityRow,
-                    idx === summary.recent.length - 1 && { borderBottomWidth: 0 },
-                  ]}
-                >
-                  <View style={styles.dateBadge}>
-                    <Text style={styles.dateDay}>{item.date.slice(8, 10)}</Text>
-                    <Text style={styles.dateMonth}>T{item.date.slice(5, 7)}</Text>
-                  </View>
-
-                  <View style={styles.activityInfo}>
-                    <View style={styles.activityTitleRow}>
-                      <Text style={styles.activityTitle}>{status}</Text>
-                      {ot > 0 && (
-                        <View style={styles.otBadge}>
-                          <Text style={styles.otBadgeText}>OT +{ot}h</Text>
-                        </View>
-                      )}
-                    </View>
-                    <Text style={styles.activityDetail}>
-                      {isPN
-                        ? '8h tính công · 100% lương'
-                        : hours
-                        ? `Đã làm ${hours} giờ`
-                        : item.note || 'Không có ghi chú'}
-                    </Text>
-                  </View>
-                </View>
-              );
-            })}
-          </View>
-        )}
-      </Card>
-
-      {/* Quick Action Banners */}
-      <View style={styles.actionGrid}>
-        <TouchableOpacity
-          accessibilityRole="button"
-          activeOpacity={0.8}
-          onPress={onOpenAttendance}
-          style={styles.primaryActionCard}
-        >
-          <View style={styles.actionIconPill}>
-            <Ionicons name="finger-print-outline" size={24} color={theme.colors.white} />
-          </View>
+    <View style={styles.screen}>
+      <ScrollView
+        style={styles.scrollArea}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Greeting Banner */}
+        <View style={styles.greetingCard}>
           <View style={{ flex: 1 }}>
-            <Text style={styles.primaryActionTitle}>CHẤM CÔNG NGÀY</Text>
-            <Text style={styles.primaryActionDesc}>Xem lịch & ghi nhận giờ làm</Text>
+            <View style={styles.greetingBadge}>
+              <Ionicons name="star" size={13} color={theme.colors.primary} />
+              <Text style={styles.greetingBadgeText}>Bảng tin chấm công</Text>
+            </View>
+            <Text style={styles.hello}>Xin chào, Trí 👋</Text>
+            <Text style={styles.subhead}>Theo dõi tiến độ công và thu nhập chính xác</Text>
           </View>
-          <View style={styles.actionArrowCircle}>
-            <Ionicons name="arrow-forward" size={16} color={theme.colors.primary} />
+          <View style={styles.avatarGlow}>
+            <Text style={styles.avatarText}>T</Text>
           </View>
-        </TouchableOpacity>
+        </View>
 
+        {/* Month Selector */}
+        <MonthSelector month={month} onChange={selectMonth} />
+
+        {/* KPI Grid */}
+        <View style={styles.kpis}>
+          <View style={styles.kpiCol}>
+            <StatCard
+              title="NGÀY CÔNG"
+              value={`${workDays} / 26`}
+              subtitle={`${completionPercent}% mục tiêu`}
+              tone={theme.colors.primary}
+              icon={<Ionicons name="calendar" size={16} color={theme.colors.primary} />}
+            />
+          </View>
+          <View style={styles.kpiCol}>
+            <StatCard
+              title="TỔNG GIỜ LÀM"
+              value={`${totalHours}h`}
+              subtitle="Tổng các loại ca"
+              tone={theme.colors.purple}
+              icon={<Ionicons name="time" size={16} color={theme.colors.purple} />}
+            />
+          </View>
+          <View style={styles.kpiCol}>
+            <StatCard
+              title="TĂNG CA (OT)"
+              value={`${totalOtHours}h`}
+              subtitle="Hưởng hệ số OT"
+              tone={theme.colors.warning}
+              icon={<Ionicons name="flame" size={16} color={theme.colors.warning} />}
+            />
+          </View>
+          <View style={styles.kpiCol}>
+            <StatCard
+              title="DỰ KIẾN THỰC LĨNH"
+              value={formatVND(payroll.net)}
+              subtitle="Đã trừ BHXH"
+              small
+              tone={theme.colors.success}
+              icon={<Ionicons name="wallet" size={16} color={theme.colors.success} />}
+            />
+          </View>
+        </View>
+
+        {/* Work Days Progress */}
+        <Card style={styles.sectionCard}>
+          <View style={styles.cardHeader}>
+            <View style={styles.headerLeft}>
+              <View style={[styles.headerIconBox, { backgroundColor: theme.colors.primarySoft }]}>
+                <Ionicons name="trending-up" size={18} color={theme.colors.primary} />
+              </View>
+              <View>
+                <Text style={styles.sectionTitle}>TIẾN ĐỘ CÔNG THÁNG</Text>
+                <Text style={styles.sectionSub}>Kỳ công tiêu chuẩn 26 ngày</Text>
+              </View>
+            </View>
+            <View style={styles.percentPill}>
+              <Text style={styles.percentText}>{completionPercent}%</Text>
+            </View>
+          </View>
+
+          <View style={styles.progressTrack}>
+            <View style={[styles.progressFill, { width: barWidth(workDays, 26) }]} />
+          </View>
+
+          <View style={styles.progressChips}>
+            <View style={styles.chip}>
+              <View style={[styles.chipDot, { backgroundColor: theme.colors.primary }]} />
+              <Text style={styles.chipText}>{summary.worked} ngày đi làm</Text>
+            </View>
+            <View style={styles.chip}>
+              <View style={[styles.chipDot, { backgroundColor: theme.colors.purple }]} />
+              <Text style={styles.chipText}>{summary.pn} phép năm (PN)</Text>
+            </View>
+            <View style={styles.chip}>
+              <View style={[styles.chipDot, { backgroundColor: theme.colors.slate400 }]} />
+              <Text style={styles.chipText}>{summary.rest} ngày nghỉ</Text>
+            </View>
+          </View>
+        </Card>
+
+        {/* Hour Distribution */}
+        <Card style={styles.sectionCard}>
+          <View style={styles.cardHeader}>
+            <View style={styles.headerLeft}>
+              <View style={[styles.headerIconBox, { backgroundColor: theme.colors.purpleSoft }]}>
+                <Ionicons name="pie-chart" size={18} color={theme.colors.purple} />
+              </View>
+              <View>
+                <Text style={styles.sectionTitle}>PHÂN BỔ GIỜ LÀM VIỆC</Text>
+                <Text style={styles.sectionSub}>Tổng cộng {totalHours} giờ được ghi nhận</Text>
+              </View>
+            </View>
+          </View>
+
+          <View style={{ marginTop: 6 }}>
+            {hourRows.map((row) => (
+              <View key={row.label} style={styles.hourRow}>
+                <View style={styles.hourLabelBox}>
+                  <Ionicons name={row.icon} size={15} color={row.color} style={{ marginRight: 6 }} />
+                  <Text style={styles.hourLabel}>{row.label}</Text>
+                </View>
+                <View style={styles.hourTrack}>
+                  <View
+                    style={[
+                      styles.hourFill,
+                      {
+                        width: barWidth(row.value, Math.max(totalHours, 1)),
+                        backgroundColor: row.color,
+                      },
+                    ]}
+                  />
+                </View>
+                <Text style={styles.hourValue}>{row.value}h</Text>
+              </View>
+            ))}
+          </View>
+        </Card>
+
+        {/* Recent Activity */}
+        <Card style={styles.sectionCard}>
+          <View style={styles.cardHeader}>
+            <View style={styles.headerLeft}>
+              <View style={[styles.headerIconBox, { backgroundColor: theme.colors.warningSoft }]}>
+                <Ionicons name="list" size={18} color={theme.colors.warning} />
+              </View>
+              <View>
+                <Text style={styles.sectionTitle}>HOẠT ĐỘNG GẦN ĐÂY</Text>
+                <Text style={styles.sectionSub}>5 bản ghi chấm công mới nhất</Text>
+              </View>
+            </View>
+          </View>
+
+          {summary.recent.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <View style={styles.emptyIconBox}>
+                <Ionicons name="calendar-outline" size={32} color={theme.colors.slate300} />
+              </View>
+              <Text style={styles.emptyTitle}>Chưa có dữ liệu chấm công</Text>
+              <Text style={styles.emptySub}>Hãy bắt đầu vào ca hoặc nhập giờ thủ công cho tháng này</Text>
+            </View>
+          ) : (
+            <View style={{ marginTop: 4 }}>
+              {summary.recent.map((item, idx) => {
+                const hours = computeWorkedHours(item);
+                const overtime = computeOvertimeForDay(item);
+                const ot = overtime.ot150 + overtime.ot200 + overtime.ot210;
+
+                const isPN = item.leaveType === 'PN' || item.leaveCode === 'PN';
+                const isUnpaid = item.leaveType === 'UNPAID';
+                const isOther = item.leaveType === 'OTHER';
+                const isHoliday = item.dayType === 'HOLIDAY';
+                const isWeeklyOff = item.dayType === 'WEEKLY_OFF';
+
+                const status = isPN
+                  ? 'Nghỉ phép năm (PN)'
+                  : isUnpaid
+                  ? 'Nghỉ không lương'
+                  : isOther
+                  ? 'Nghỉ khác'
+                  : isHoliday
+                  ? 'Nghỉ lễ'
+                  : isWeeklyOff
+                  ? 'Nghỉ tuần'
+                  : item.shift?.start
+                  ? `${item.shift.start} → ${item.shift.end || 'Đang làm'}`
+                  : 'Chưa có giờ';
+
+                return (
+                  <View
+                    key={item.date}
+                    style={[
+                      styles.activityRow,
+                      idx === summary.recent.length - 1 && { borderBottomWidth: 0 },
+                    ]}
+                  >
+                    <View style={styles.dateBadge}>
+                      <Text style={styles.dateDay}>{item.date.slice(8, 10)}</Text>
+                      <Text style={styles.dateMonth}>T{item.date.slice(5, 7)}</Text>
+                    </View>
+
+                    <View style={styles.activityInfo}>
+                      <View style={styles.activityTitleRow}>
+                        <Text style={styles.activityTitle}>{status}</Text>
+                        {ot > 0 && (
+                          <View style={styles.otBadge}>
+                            <Text style={styles.otBadgeText}>OT +{ot}h</Text>
+                          </View>
+                        )}
+                      </View>
+                      <Text style={styles.activityDetail}>
+                        {isPN
+                          ? '8h tính công · 100% lương'
+                          : hours
+                          ? `Đã làm ${hours} giờ`
+                          : item.note || 'Không có ghi chú'}
+                      </Text>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          )}
+        </Card>
+
+        {/* Secondary Action Banner */}
         <TouchableOpacity
           accessibilityRole="button"
           activeOpacity={0.8}
@@ -312,8 +298,29 @@ export default function Dashboard({ onOpenAttendance, onOpenPayroll }: Props) {
             <Ionicons name="arrow-forward" size={16} color={theme.colors.slate700} />
           </View>
         </TouchableOpacity>
+      </ScrollView>
+
+      {/* Pinned Bottom Area: CHẤM CÔNG NGÀY */}
+      <View style={styles.pinnedBottomBar}>
+        <TouchableOpacity
+          accessibilityRole="button"
+          activeOpacity={0.8}
+          onPress={onOpenAttendance}
+          style={styles.primaryActionCard}
+        >
+          <View style={styles.actionIconPill}>
+            <Ionicons name="finger-print-outline" size={24} color={theme.colors.white} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.primaryActionTitle}>CHẤM CÔNG NGÀY</Text>
+            <Text style={styles.primaryActionDesc}>Xem lịch & ghi nhận giờ làm</Text>
+          </View>
+          <View style={styles.actionArrowCircle}>
+            <Ionicons name="arrow-forward" size={16} color={theme.colors.primary} />
+          </View>
+        </TouchableOpacity>
       </View>
-    </ScrollView>
+    </View>
   );
 }
 
@@ -322,10 +329,13 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: theme.colors.background,
   },
+  scrollArea: {
+    flex: 1,
+  },
   content: {
     padding: 16,
     gap: 14,
-    paddingBottom: 28,
+    paddingBottom: 24,
   },
   greetingCard: {
     flexDirection: 'row',
@@ -585,8 +595,29 @@ const styles = StyleSheet.create({
     color: theme.colors.slate500,
     marginTop: 2,
   },
-  actionGrid: {
-    gap: 12,
+  pinnedBottomBar: {
+    backgroundColor: theme.colors.white,
+    borderTopWidth: 1,
+    borderColor: theme.colors.border,
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 10,
+    flexShrink: 0,
+    zIndex: 40,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -3 },
+        shadowOpacity: 0.05,
+        shadowRadius: 6,
+      },
+      android: {
+        elevation: 6,
+      },
+      web: {
+        boxShadow: '0 -2px 10px rgba(0,0,0,0.04)',
+      },
+    }),
   },
   primaryActionCard: {
     backgroundColor: theme.colors.primary,

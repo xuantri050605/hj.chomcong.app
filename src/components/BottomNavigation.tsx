@@ -78,6 +78,9 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.white,
     borderTopWidth: 1,
     borderColor: theme.colors.border,
+    flexShrink: 0,
+    zIndex: 50,
+    width: '100%',
     ...Platform.select({
       ios: {
         shadowColor: '#000',
@@ -90,11 +93,16 @@ const styles = StyleSheet.create({
       },
       web: {
         boxShadow: '0 -2px 10px rgba(0,0,0,0.04)',
+        position: 'sticky' as any,
+        bottom: 0,
       },
     }),
   },
   bar: {
     height: 68,
+    maxWidth: 1200,
+    width: '100%',
+    alignSelf: 'center',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-around',

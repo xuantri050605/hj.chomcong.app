@@ -105,9 +105,18 @@ export default function AttendanceStatusCard({ state }: { state: any }) {
 
           <View style={styles.workingSourceBox}>
             <Text style={styles.workingCheckInLabel}>XÁC THỰC</Text>
-            <View style={styles.sourceTag}>
-              <Ionicons name="phone-portrait-outline" size={16} color={theme.colors.slate600} style={{ marginRight: 4 }} />
-              <Text style={styles.sourceTagText}>Thiết bị cá nhân</Text>
+            <View style={[styles.sourceTag, state.source === 'GEOFENCE_CONFIRMED' && { backgroundColor: theme.colors.successSoft }]}>
+              <Ionicons
+                name={state.source === 'GEOFENCE_CONFIRMED' ? 'location-sharp' : 'phone-portrait-outline'}
+                size={16}
+                color={state.source === 'GEOFENCE_CONFIRMED' ? theme.colors.successDark : theme.colors.slate600}
+                style={{ marginRight: 4 }}
+              />
+              <Text style={[styles.sourceTagText, state.source === 'GEOFENCE_CONFIRMED' && { color: theme.colors.successDark, fontWeight: '700' }]}>
+                {state.source === 'GEOFENCE_CONFIRMED'
+                  ? `GPS Geofence${state.gpsMetadata?.distance !== undefined ? ` (${state.gpsMetadata.distance}m)` : ''}`
+                  : 'Thiết bị cá nhân'}
+              </Text>
             </View>
           </View>
         </View>
@@ -159,6 +168,11 @@ export default function AttendanceStatusCard({ state }: { state: any }) {
           <Text style={[styles.timelineValue, { color: theme.colors.successDark }]}>
             {state.durationLabel || 'Đã ghi nhận'}
           </Text>
+          {state.source === 'GEOFENCE_CONFIRMED' && (
+            <Text style={{ fontSize: 10, color: theme.colors.successDark, fontWeight: '700', marginTop: 2 }}>
+              GPS Geofence{state.gpsMetadata?.distance !== undefined ? ` (${state.gpsMetadata.distance}m)` : ''}
+            </Text>
+          )}
         </View>
       </View>
 

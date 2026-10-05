@@ -12,6 +12,8 @@
 import type { DayAttendance } from '../engine/attendanceCalculator';
 import type { SalaryConfig } from '../engine/payrollCalculator';
 import { normalizeTimeInput } from '../engine/timeCalculator';
+import type { CompanyLocationConfig, PendingAttendanceEvent } from '../types/geofence';
+import { DEFAULT_COMPANY_LOCATION } from '../types/geofence';
 
 export const MAX_SAFE_CURRENCY = 1_000_000_000_000; // 1,000 billion VND
 export const MAX_STANDARD_HOURS_PER_MONTH = 744; // 31 days * 24 hours
@@ -180,15 +182,30 @@ export function sanitizeDayAttendance(raw: unknown): DayAttendance | null {
     : null;
 
   // TimeSource validation
-  const allowedTimeSources = ['DEVICE', 'MANUAL'];
+  const allowedTimeSources = ['DEVICE', 'MANUAL', 'GEOFENCE_CONFIRMED'];
   const timeSource = allowedTimeSources.includes(String(obj.timeSource))
-    ? (obj.timeSource as 'DEVICE' | 'MANUAL')
+    ? (obj.timeSource as 'DEVICE' | 'MANUAL' | 'GEOFENCE_CONFIRMED')
     : 'DEVICE';
 
   const originalTimeSource =
-    obj.originalTimeSource === 'DEVICE' || obj.originalTimeSource === 'MANUAL'
-      ? (obj.originalTimeSource as 'DEVICE' | 'MANUAL')
+    obj.originalTimeSource === 'DEVICE' ||
+    obj.originalTimeSource === 'MANUAL' ||
+    obj.originalTimeSource === 'GEOFENCE_CONFIRMED'
+      ? (obj.originalTimeSource as 'DEVICE' | 'MANUAL' | 'GEOFENCE_CONFIRMED')
       : null;
+
+  // GPS metadata validation
+  let gpsMetadata: DayAttendance['gpsMetadata'] = null;
+  if (obj.gpsMetadata && typeof obj.gpsMetadata === 'object') {
+    const rawGps = obj.gpsMetadata as Record<string, unknown>;
+    gpsMetadata = {
+      accuracy: typeof rawGps.accuracy === 'number' ? rawGps.accuracy : undefined,
+      distance: typeof rawGps.distance === 'number' ? rawGps.distance : undefined,
+      timestamp: typeof rawGps.timestamp === 'string' ? rawGps.timestamp.slice(0, 50) : undefined,
+      latitude: typeof rawGps.latitude === 'number' ? rawGps.latitude : undefined,
+      longitude: typeof rawGps.longitude === 'number' ? rawGps.longitude : undefined,
+    };
+  }
 
   // Shift validation
   let shift: { start?: string; end?: string } | null = null;
@@ -218,9 +235,100 @@ export function sanitizeDayAttendance(raw: unknown): DayAttendance | null {
     note,
     timeSource,
     originalTimeSource,
+    gpsMetadata,
     createdAt: typeof obj.createdAt === 'string' ? obj.createdAt.slice(0, 50) : undefined,
     updatedAt: typeof obj.updatedAt === 'string' ? obj.updatedAt.slice(0, 50) : undefined,
   };
 
   return sanitized;
 }
+
+/**
+ * Validates and sanitizes company location configuration.
+ */
+export function sanitizeCompanyLocationConfig(
+  input: unknown,
+  fallback = DEFAULT_COMPANY_LOCATION
+): CompanyLocationConfig {
+  if (!input || typeof input !== 'object') return { ...fallback };
+  const obj = input as Record<string, unknown>;
+
+  const lat = typeof obj.latitude === 'number' && Number.isFinite(obj.latitude) && obj.latitude >= -90 && obj.latitude <= 90
+    ? obj.latitude
+    : fallback.latitude;
+
+  const lon = typeof obj.longitude === 'number' && Number.isFinite(obj.longitude) && obj.longitude >= -180 && obj.longitude <= 180
+    ? obj.longitude
+    : fallback.longitude;
+
+  let radius = typeof obj.radius === 'number' && Number.isFinite(obj.radius)
+    ? Math.round(obj.radius)
+    : fallback.radius;
+  if (radius < 100) radius = 100;
+  if (radius > 500) radius = 500;
+
+  const enabled = typeof obj.enabled === 'boolean' ? obj.enabled : fallback.enabled;
+  const updatedAt = typeof obj.updatedAt === 'string' ? obj.updatedAt.slice(0, 50) : undefined;
+
+  return {
+    latitude: lat,
+    longitude: lon,
+    radius,
+    enabled,
+    updatedAt,
+  };
+}
+
+/**
+ * Validates and sanitizes a pending attendance event.
+ */
+export function sanitizePendingAttendanceEvent(input: unknown): PendingAttendanceEvent | null {
+  if (!input || typeof input !== 'object') return null;
+  const obj = input as Record<string, unknown>;
+
+  if (typeof obj.id !== 'string' || !obj.id.trim()) return null;
+  const id = obj.id.trim().slice(0, 100);
+
+  if (obj.type !== 'CHECK_IN' && obj.type !== 'CHECK_OUT') return null;
+  const type = obj.type;
+
+  if (typeof obj.detectedAt !== 'string') return null;
+  const detectedAt = obj.detectedAt.slice(0, 50);
+
+  if (typeof obj.latitude !== 'number' || !Number.isFinite(obj.latitude) || obj.latitude < -90 || obj.latitude > 90) return null;
+  const latitude = obj.latitude;
+
+  if (typeof obj.longitude !== 'number' || !Number.isFinite(obj.longitude) || obj.longitude < -180 || obj.longitude > 180) return null;
+  const longitude = obj.longitude;
+
+  if (typeof obj.accuracy !== 'number' || !Number.isFinite(obj.accuracy) || obj.accuracy < 0) return null;
+  const accuracy = Math.round(obj.accuracy * 10) / 10;
+
+  if (typeof obj.distanceFromCompany !== 'number' || !Number.isFinite(obj.distanceFromCompany) || obj.distanceFromCompany < 0) return null;
+  const distanceFromCompany = Math.round(obj.distanceFromCompany * 10) / 10;
+
+  const status = obj.status === 'CONFIRMED' || obj.status === 'DISMISSED' || obj.status === 'PENDING'
+    ? obj.status
+    : 'PENDING';
+
+  if (typeof obj.shiftDate !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(obj.shiftDate)) return null;
+  const shiftDate = obj.shiftDate;
+
+  if (typeof obj.timeString !== 'string' || !/^\d{2}:\d{2}$/.test(obj.timeString)) return null;
+  const timeString = obj.timeString;
+
+  return {
+    id,
+    type,
+    detectedAt,
+    latitude,
+    longitude,
+    accuracy,
+    distanceFromCompany,
+    source: 'GEOFENCE',
+    status,
+    shiftDate,
+    timeString,
+  };
+}
+
