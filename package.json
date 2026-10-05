@@ -8,8 +8,9 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
-    "build": "expo export:web && node scripts/postbuild.js",
-    "build:web": "expo export:web && node scripts/postbuild.js",
+    "clean": "node -e \"const fs = require('fs'); fs.rmSync('web-build', { recursive: true, force: true });\"",
+    "build": "node -e \"const fs = require('fs'); fs.rmSync('web-build', { recursive: true, force: true });\" && expo export:web && node scripts/postbuild.js",
+    "build:web": "node -e \"const fs = require('fs'); fs.rmSync('web-build', { recursive: true, force: true });\" && expo export:web && node scripts/postbuild.js",
     "typecheck": "tsc --noEmit",
     "test": "jest",
     "test:coverage": "jest --coverage"
@@ -43,5 +44,6 @@
     "transform": {
       "^.+\\.tsx?$": "ts-jest"
     }
-  }
+  },
+  "homepage": "https://xuantri050605.github.io/hj.chomcong.app"
 }

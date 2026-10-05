@@ -6,7 +6,9 @@
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "web": {
-      "bundler": "webpack"
+      "bundler": "webpack",
+      "startUrl": "/hj.chomcong.app/",
+      "scope": "/hj.chomcong.app/"
     }
   }
 }

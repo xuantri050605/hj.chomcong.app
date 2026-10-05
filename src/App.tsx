@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { SafeAreaView, View, StyleSheet, Dimensions, Text, TouchableOpacity, StatusBar } from 'react-native';
+import React, { useEffect, useState, useCallback } from 'react';
+import { SafeAreaView, View, StyleSheet, Dimensions, Text, TouchableOpacity, StatusBar, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Dashboard from './screens/Dashboard';
 import AttendanceScreen from './screens/Attendance';
@@ -10,17 +10,51 @@ import { useSalaryStore } from './store/salaryStore';
 import { useAttendanceStore } from './store/attendanceStore';
 import AppHeader from './components/AppHeader';
 import BottomNavigation from './components/BottomNavigation';
-import { AppRoute, backToDashboard, dashboardDestination } from './utils/navigationState';
+import { AppRoute, backToDashboard, dashboardDestination, formatRouteHash, parseRouteFromHash } from './utils/navigationState';
 import { theme } from './theme/theme';
 
 export default function App() {
-  const [route, setRoute] = useState<AppRoute>('Dashboard');
+  const [route, setRoute] = useState<AppRoute>(() => {
+    if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location) {
+      return parseRouteFromHash(window.location.hash) || 'Dashboard';
+    }
+    return 'Dashboard';
+  });
+
+  const navigateTo = useCallback((newRoute: AppRoute) => {
+    setRoute(newRoute);
+    if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location) {
+      const targetHash = formatRouteHash(newRoute);
+      if (window.location.hash !== targetHash) {
+        if (!targetHash) {
+          window.history.pushState(null, '', `${window.location.pathname}${window.location.search}`);
+        } else {
+          window.location.hash = targetHash;
+        }
+      }
+    }
+  }, []);
+
   const loadConfig = useSalaryStore((s) => s.loadConfig);
   const loadMonth = useAttendanceStore((s) => s.loadMonth);
 
   useEffect(() => {
     void loadConfig();
     void loadMonth();
+  }, []);
+
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+
+    const onHashChange = () => {
+      const routeFromUrl = parseRouteFromHash(window.location.hash) || 'Dashboard';
+      setRoute(routeFromUrl);
+    };
+
+    window.addEventListener('hashchange', onHashChange);
+    return () => {
+      window.removeEventListener('hashchange', onHashChange);
+    };
   }, []);
 
   const items = [
@@ -60,7 +94,7 @@ export default function App() {
               <TouchableOpacity
                 accessibilityLabel="Quay lại Tổng quan"
                 activeOpacity={0.7}
-                onPress={() => setRoute(backToDashboard())}
+                onPress={() => navigateTo(backToDashboard())}
                 style={styles.backButton}
               >
                 <Ionicons name="arrow-back" size={16} color={theme.colors.primary} />
@@ -75,18 +109,18 @@ export default function App() {
 
           {route === 'Dashboard' && (
             <Dashboard
-              onOpenAttendance={() => setRoute(dashboardDestination('attendance'))}
-              onOpenPayroll={() => setRoute(dashboardDestination('payroll'))}
+              onOpenAttendance={() => navigateTo(dashboardDestination('attendance'))}
+              onOpenPayroll={() => navigateTo(dashboardDestination('payroll'))}
             />
           )}
           {route === 'Attendance' && <AttendanceScreen />}
           {route === 'Payroll' && <PayrollResult />}
           {route === 'Salary' && <SalaryConfig />}
-          {route === 'History' && <History onOpenPayroll={() => setRoute('Payroll')} />}
+          {route === 'History' && <History onOpenPayroll={() => navigateTo('Payroll')} />}
         </View>
       </View>
 
-      <BottomNavigation items={items} activeKey={route} onSelect={(k) => setRoute(k as AppRoute)} />
+      <BottomNavigation items={items} activeKey={route} onSelect={(k) => navigateTo(k as AppRoute)} />
     </SafeAreaView>
   );
 }
