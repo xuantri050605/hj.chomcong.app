@@ -48,21 +48,66 @@ jobs:
       - name: Run Test Suites with Coverage
         run: npm test -- --ci --maxWorkers=2
 
-      - name: Production Web Export Build
-        run: npm run build
-
-      - name: Verify Production Output Artifacts
+      - name: Clean & Export Production Web Build
         run: |
-          test -f web-build/index.html || (echo "Missing web-build/index.html" && exit 1)
-          test -f web-build/health.json || (echo "Missing web-build/health.json" && exit 1)
-          echo "Production web artifacts verified successfully."
+          echo "Cleaning web-build directory before export..."
+          rm -rf web-build
+          npm run build
 
-      - name: Archive Production Web Build
-        uses: actions/upload-artifact@v4
-        with:
-          name: production-web-build
-          path: web-build/
-          retention-days: 14
+      - name: Print Build Diagnostics & Verification Marker
+        run: |
+          GIT_SHA=$(git rev-parse HEAD)
+          echo "=================== GIT COMMIT SHA ==================="
+          echo "Current Git Commit: $GIT_SHA"
+          echo "======================================================"
+
+          echo "=== SHA256 OF web-build/index.html ==="
+          sha256sum web-build/index.html
+          echo "======================================"
+
+          echo "=== GREP ASSET AND MANIFEST PATHS ==="
+          grep -o -E '(src|href)="[^"]+"' web-build/index.html || true
+          echo "======================================"
+
+      - name: Verify Production Output Artifacts & CI Assertions
+        run: |
+          test -f web-build/index.html || (echo "::error::Missing web-build/index.html" && exit 1)
+          test -f web-build/health.json || (echo "::error::Missing web-build/health.json" && exit 1)
+          test -f web-build/404.html || (echo "::error::Missing web-build/404.html" && exit 1)
+          test -f web-build/build-marker.json || (echo "::error::Missing web-build/build-marker.json" && exit 1)
+
+          echo "=================== GENERATED web-build/index.html ==================="
+          cat web-build/index.html
+          echo ""
+          echo "======================================================================="
+
+          # 1. Require GitHub Pages subpath in index.html
+          if ! grep -q '/hj.chomcong.app/' web-build/index.html; then
+            echo "::error::FAIL: web-build/index.html does not contain GitHub Pages base path '/hj.chomcong.app/'"
+            exit 1
+          fi
+
+          # 2. Reject broken root-relative paths
+          if grep -q 'src="/static/' web-build/index.html; then
+            echo "::error::FAIL: Found broken root asset path src=\"/static/ in index.html"
+            exit 1
+          fi
+          if grep -q 'href="/manifest.json"' web-build/index.html; then
+            echo "::error::FAIL: Found broken root asset path href=\"/manifest.json\" in index.html"
+            exit 1
+          fi
+          if grep -q 'src="/_expo/' web-build/index.html; then
+            echo "::error::FAIL: Found broken root asset path src=\"/_expo/ in index.html"
+            exit 1
+          fi
+          if grep -q 'href="\\manifest.json"' web-build/index.html || grep -q 'href="\\hj.chomcong.app' web-build/index.html; then
+            echo "::error::FAIL: Found invalid Windows backslash in index.html asset URLs"
+            exit 1
+          fi
+
+          # 3. Run automated verification tool
+          node scripts/verify-subpath-assets.js
+          echo "All subpath CI assertions passed successfully for /hj.chomcong.app/."
 
       - name: Upload Single GitHub Pages Artifact
         uses: actions/upload-pages-artifact@v4
