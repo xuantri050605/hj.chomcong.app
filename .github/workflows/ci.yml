@@ -1,0 +1,96 @@
+name: Production CI/CD & Security Hardening Pipeline
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  validate-and-build:
+    name: Typecheck, Security Audit, Unit Tests & Production Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout Codebase
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 18.x (Expo SDK 48 compatible)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18.x
+          cache: 'npm'
+
+      - name: Verify Clean Working Copy & No Leaked Secrets
+        run: |
+          echo "Verifying secret management..."
+          if [ -f .env ] || [ -f .env.local ] || [ -f .env.production ]; then
+            echo "::error::Found committed .env file! Production secrets must never be committed to Git."
+            exit 1
+          fi
+          echo "Secret check passed: no live .env committed."
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: TypeScript Static Typecheck
+        run: npm run typecheck
+
+      - name: Run Test Suites with Coverage
+        run: npm test -- --ci --maxWorkers=2
+
+      - name: Production Web Export Build
+        run: npm run build
+
+      - name: Verify Production Output Artifacts
+        run: |
+          test -f web-build/index.html || (echo "Missing web-build/index.html" && exit 1)
+          test -f web-build/health.json || (echo "Missing web-build/health.json" && exit 1)
+          echo "Production web artifacts verified successfully."
+
+      - name: Archive Production Web Build
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-web-build
+          path: web-build/
+          retention-days: 14
+
+  deploy-production:
+    name: Automated Production Deployment
+    needs: validate-and-build
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout Codebase
+        uses: actions/checkout@v4
+
+      - name: Download Production Web Build
+        uses: actions/download-artifact@v4
+        with:
+          name: production-web-build
+          path: web-build/
+
+      - name: Deploy to GitHub Pages (Fallback / Direct Static Web Hosting)
+        if: env.VERCEL_TOKEN == ''
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: web-build/
+
+      - name: Publish to GitHub Pages
+        if: env.VERCEL_TOKEN == ''
+        uses: actions/deploy-pages@v4
+        id: deployment
+

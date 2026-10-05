@@ -1,0 +1,13 @@
+{
+  "expo": {
+    "name": "Chấm Công & Bảng Lương",
+    "slug": "cham-cong-mobile",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "web": {
+      "bundler": "webpack"
+    }
+  }
+}
+

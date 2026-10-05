@@ -1,23 +1,34 @@
-import create from 'zustand';
+import { create } from 'zustand';
+import { DEFAULT_CONFIG, SalaryConfig as EngineConfig } from '../engine/payrollCalculator';
+import { loadConfig, saveConfig } from '../utils/persistence';
+import { sanitizeSalaryConfig } from '../utils/securityValidator';
 
-export type SalaryConfig = {
-  baseSalary: number;
-  allowances: Record<string, number>;
-  standardHoursPerMonth: number;
-  rates: Record<string, number>;
-};
+export type SalaryConfig = EngineConfig;
 
 type SalaryState = {
   config: SalaryConfig;
-  setConfig: (c: SalaryConfig) => void;
+  loadConfig: () => Promise<void>;
+  setConfig: (c: SalaryConfig) => Promise<void>;
+  resetDefaults: () => Promise<void>;
 };
 
 export const useSalaryStore = create<SalaryState>((set) => ({
-  config: {
-    baseSalary: 0,
-    allowances: {},
-    standardHoursPerMonth: 208,
-    rates: {},
+  config: DEFAULT_CONFIG,
+  loadConfig: async () => {
+    const c = await loadConfig();
+    if (c) {
+      const sanitized = sanitizeSalaryConfig(c, DEFAULT_CONFIG);
+      set({ config: sanitized });
+    }
   },
-  setConfig: (c) => set({ config: c }),
+  setConfig: async (c: SalaryConfig) => {
+    const sanitized = sanitizeSalaryConfig(c, DEFAULT_CONFIG);
+    set({ config: sanitized });
+    await saveConfig(sanitized);
+  },
+  resetDefaults: async () => {
+    set({ config: DEFAULT_CONFIG });
+    await saveConfig(DEFAULT_CONFIG);
+  },
 }));
+

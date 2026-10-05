@@ -1,8 +1,8 @@
-import { hoursBetween, splitNightDayHours } from './timeCalculator';
+import { paidHoursBetween, splitNightDayHours } from './timeCalculator';
 
 export type Shift = {
-  start: string; // HH:mm
-  end: string; // HH:mm
+  start?: string | null; // HH:mm
+  end?: string | null; // HH:mm (optional to allow open-ended clock-in)
 };
 
 export type DayAttendance = {
@@ -11,17 +11,26 @@ export type DayAttendance = {
   dayType: 'NORMAL' | 'WEEKLY_OFF' | 'HOLIDAY';
   shift?: Shift | null; // main shift
   leaveType?: 'PN' | 'UNPAID' | 'OTHER' | null;
+  // Persisted UI/domain alias. leaveType remains the payroll engine's source.
+  leaveCode?: 'PN' | 'UNPAID' | 'OTHER' | null;
   note?: string | null;
+  // source of the time entry: DEVICE when clocked by device, MANUAL when entered by user
+  timeSource?: 'DEVICE' | 'MANUAL';
+  // if a DEVICE record is later edited manually, record original source
+  originalTimeSource?: 'DEVICE' | 'MANUAL' | null;
+  // audit
+  createdAt?: string | null; // ISO timestamp
+  updatedAt?: string | null; // ISO timestamp
 };
 
 // Compute total worked hours for a DayAttendance. Respects crossing-midnight.
 export function computeWorkedHours(a: DayAttendance): number {
-  if (!a.shift) return 0;
-  return hoursBetween(a.shift.start, a.shift.end);
+  if (!a.shift || !a.shift.start || !a.shift.end) return 0;
+  return paidHoursBetween(a.shift.start, a.shift.end);
 }
 
 export function computeDayNightBreakdown(a: DayAttendance): { dayHours: number; nightHours: number } {
-  if (!a.shift) return { dayHours: 0, nightHours: 0 };
+  if (!a.shift || !a.shift.start || !a.shift.end) return { dayHours: 0, nightHours: 0 };
   return splitNightDayHours(a.shift.start, a.shift.end);
 }
 

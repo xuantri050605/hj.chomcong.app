@@ -1,6 +1,40 @@
-node_modules
-.expo
-.build
-.DS_Store
+# Node & Package Managers
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
 
+# Expo & Metro
+.expo/
+.expo-shared/
 web-build/
+dist/
+.build/
+
+# Testing & Coverage
+coverage/
+*.lcov
+
+# Environment Variables (OWASP secret safety: never commit secrets)
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+.env.*.local
+!.env.example
+
+# Deployment & Vercel
+.vercel/
+.output/
+
+# Native builds
+android/
+ios/
+
+# Operating System
+.DS_Store
+Thumbs.db
+*.swp
+*.bak
