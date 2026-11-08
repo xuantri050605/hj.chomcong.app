@@ -1,11 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, FlatList, TouchableOpacity, Alert, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, Alert, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { listMonths, loadPayroll, deletePayroll } from '../utils/persistence';
 import { formatVND } from '../utils/format';
 import { useAttendanceStore } from '../store/attendanceStore';
 import Card from '../components/Card';
-import Button from '../components/Button';
 import { theme } from '../theme/theme';
 
 export default function History({ onOpenPayroll }: { onOpenPayroll?: () => void }) {
@@ -71,7 +70,12 @@ export default function History({ onOpenPayroll }: { onOpenPayroll?: () => void 
             <Text style={styles.subtitle}>Dữ liệu các kỳ lương đã lưu trữ</Text>
           </View>
         </View>
-        <TouchableOpacity activeOpacity={0.7} onPress={refresh} style={styles.refreshBtn}>
+        <TouchableOpacity
+          accessibilityLabel="Làm mới lịch sử"
+          activeOpacity={0.7}
+          onPress={refresh}
+          style={styles.refreshBtn}
+        >
           <Ionicons name="refresh" size={18} color={theme.colors.primary} />
         </TouchableOpacity>
       </View>
@@ -92,7 +96,7 @@ export default function History({ onOpenPayroll }: { onOpenPayroll?: () => void 
         <FlatList
           data={months}
           keyExtractor={(i) => i}
-          contentContainerStyle={{ gap: 10, paddingBottom: 20 }}
+          contentContainerStyle={{ gap: 12, paddingBottom: 24 }}
           showsVerticalScrollIndicator={false}
           renderItem={({ item }) => (
             <Card style={styles.monthCard}>
@@ -236,8 +240,8 @@ const styles = StyleSheet.create({
     maxWidth: 280,
   },
   monthCard: {
-    padding: 14,
-    borderRadius: theme.radius.lg,
+    padding: 16,
+    borderRadius: theme.radius.xl,
   },
   monthCardMain: {
     flexDirection: 'row',
@@ -245,8 +249,8 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   monthIconBadge: {
-    width: 40,
-    height: 40,
+    width: 42,
+    height: 42,
     borderRadius: theme.radius.md,
     backgroundColor: theme.colors.primarySoft,
     alignItems: 'center',
@@ -263,9 +267,9 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   arrowCircle: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     backgroundColor: theme.colors.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
@@ -284,7 +288,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: theme.colors.successSoft,
     paddingHorizontal: 8,
-    paddingVertical: 2,
+    paddingVertical: 3,
     borderRadius: theme.radius.full,
     gap: 4,
   },
@@ -306,9 +310,10 @@ const styles = StyleSheet.create({
     color: theme.colors.danger,
   },
   previewCard: {
-    backgroundColor: theme.colors.slate900,
-    borderRadius: theme.radius.lg,
-    padding: 16,
+    backgroundColor: theme.colors.brand[900],
+    borderRadius: theme.radius.xl,
+    padding: 18,
+    ...theme.elevations.floating,
   },
   previewHeader: {
     flexDirection: 'row',
@@ -333,7 +338,7 @@ const styles = StyleSheet.create({
   previewDivider: {
     width: 1,
     height: 24,
-    backgroundColor: theme.colors.slate700,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
     marginHorizontal: 12,
   },
   previewLabel: {

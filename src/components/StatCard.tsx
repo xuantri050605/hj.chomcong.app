@@ -3,7 +3,7 @@ import { View, Text, StyleSheet } from 'react-native';
 import Card from './Card';
 import { theme } from '../theme/theme';
 
-interface StatCardProps {
+export interface StatCardProps {
   title: string;
   value: string;
   small?: boolean;
@@ -23,7 +23,9 @@ export default function StatCard({
   return (
     <Card style={styles.root}>
       <View style={styles.headerRow}>
-        <Text style={styles.title} numberOfLines={1}>{title.toUpperCase()}</Text>
+        <Text style={styles.title} numberOfLines={1}>
+          {title.toUpperCase()}
+        </Text>
         {icon ? (
           <View style={[styles.iconBadge, { backgroundColor: `${tone}18` }]}>
             {icon}
@@ -36,14 +38,17 @@ export default function StatCard({
         {value}
       </Text>
       {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
+      <View style={[styles.bottomAccentBar, { backgroundColor: tone }]} />
     </Card>
   );
 }
 
 const styles = StyleSheet.create({
   root: {
-    padding: 14,
+    padding: 16,
     justifyContent: 'space-between',
+    position: 'relative',
+    overflow: 'hidden',
   },
   headerRow: {
     flexDirection: 'row',
@@ -59,8 +64,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   iconBadge: {
-    width: 28,
-    height: 28,
+    width: 32,
+    height: 32,
     borderRadius: theme.radius.sm,
     alignItems: 'center',
     justifyContent: 'center',
@@ -71,18 +76,26 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   value: {
-    fontSize: 20,
-    fontWeight: '800',
+    fontSize: 22,
+    fontWeight: '900',
     color: theme.colors.slate900,
     letterSpacing: -0.3,
   },
   small: {
-    fontSize: 15,
+    fontSize: 16,
   },
   subtitle: {
     fontSize: 11,
     color: theme.colors.slate400,
     marginTop: 4,
     fontWeight: '500',
+  },
+  bottomAccentBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 3,
+    opacity: 0.9,
   },
 });

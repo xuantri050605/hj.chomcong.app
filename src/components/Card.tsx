@@ -1,11 +1,11 @@
 import React from 'react';
-import { View, StyleSheet, ViewStyle, StyleProp } from 'react-native';
+import { View, StyleSheet, ViewStyle, StyleProp, Platform } from 'react-native';
 import { theme } from '../theme/theme';
 
-interface CardProps {
+export interface CardProps {
   children: React.ReactNode;
   style?: StyleProp<ViewStyle>;
-  variant?: 'default' | 'elevated' | 'outlined' | 'flat';
+  variant?: 'default' | 'elevated' | 'outlined' | 'flat' | 'glass';
 }
 
 export default function Card({ children, style, variant = 'default' }: CardProps) {
@@ -19,18 +19,14 @@ export default function Card({ children, style, variant = 'default' }: CardProps
 const styles = StyleSheet.create({
   base: {
     backgroundColor: theme.colors.cardBackground,
-    borderRadius: theme.radius.lg,
+    borderRadius: theme.radius.xl,
     padding: 16,
   },
   default: {
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    ...theme.shadows.card,
+    ...theme.elevations.card,
   },
   elevated: {
-    borderWidth: 1,
-    borderColor: theme.colors.borderLight,
-    ...theme.shadows.float,
+    ...theme.elevations.floating,
   },
   outlined: {
     borderWidth: 1,
@@ -38,7 +34,19 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   flat: {
-    backgroundColor: theme.colors.slate100,
-    borderWidth: 0,
+    ...theme.elevations.flat,
+  },
+  glass: {
+    backgroundColor: theme.colors.surface.glass,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.6)',
+    ...Platform.select({
+      web: {
+        backdropFilter: 'blur(12px)',
+        WebkitBackdropFilter: 'blur(12px)',
+      } as any,
+      default: {},
+    }),
+    ...theme.elevations.card,
   },
 });

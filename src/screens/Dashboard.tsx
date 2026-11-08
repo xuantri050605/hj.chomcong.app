@@ -1,36 +1,71 @@
 import React, { useMemo } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View, Platform } from 'react-native';
+import {
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+  Image,
+  useWindowDimensions,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAttendanceStore } from '../store/attendanceStore';
 import { useSalaryStore } from '../store/salaryStore';
 import { calculatePayroll } from '../engine/payrollCalculator';
-import { computeWorkedHours } from '../engine/attendanceCalculator';
-import { computeOvertimeForDay } from '../engine/overtimeCalculator';
+import { buildCalendarDays } from '../engine/calendarProjection';
 import { formatVND } from '../utils/format';
 import Card from '../components/Card';
 import MonthSelector from '../components/MonthSelector';
 import StatCard from '../components/StatCard';
+import Button from '../components/Button';
 import { theme } from '../theme/theme';
+import { localDateKey } from '../utils/monthUtils';
+import { AppRoute } from '../utils/navigationState';
 
-type Props = { onOpenAttendance: () => void; onOpenPayroll: () => void };
+interface DashboardProps {
+  onNavigate?: (route: AppRoute) => void;
+  onOpenAttendance?: () => void;
+  onOpenPayroll?: () => void;
+  onOpenNotifications?: () => void;
+}
 
-const dateLabel = (date: string) => `${date.slice(8, 10)}/${date.slice(5, 7)}`;
-const barWidth = (value: number, total: number) =>
-  `${Math.min(100, Math.max(0, total > 0 ? (value / total) * 100 : 0))}%`;
-
-export default function Dashboard({ onOpenAttendance, onOpenPayroll }: Props) {
-  const { items, month, selectMonth } = useAttendanceStore();
+export default function Dashboard({
+  onNavigate,
+  onOpenAttendance,
+  onOpenPayroll,
+  onOpenNotifications,
+}: DashboardProps) {
+  const { items, month, selectMonth, clockIn, clockOut } = useAttendanceStore();
   const config = useSalaryStore((state) => state.config);
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 768;
 
-  // Dashboard consumes the established engine result; it does not recreate pay rules.
-  const payroll = calculatePayroll(items, config);
+  const today = localDateKey(new Date());
+  const todayRec = items.find((item) => item.date === today);
+
+  const payroll = useMemo(() => calculatePayroll(items, config), [items, config]);
+  const calendarDays = useMemo(() => buildCalendarDays(month, items), [month, items]);
 
   const summary = useMemo(() => {
     const pn = items.filter((item) => item.leaveType === 'PN' || item.leaveCode === 'PN').length;
     const worked = items.filter((item) => Boolean(item.shift?.start) && item.leaveType !== 'PN').length;
-    const rest = items.filter((item) => item.dayType === 'WEEKLY_OFF' || item.dayType === 'HOLIDAY').length;
-    const recent = [...items].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5);
-    return { pn, worked, rest, recent };
+    const unpaid = items.filter((item) => item.leaveType === 'UNPAID' || item.leaveCode === 'UNPAID').length;
+    const holidays = items.filter((item) => item.dayType === 'HOLIDAY').length;
+    const weeklyOff = items.filter((item) => item.dayType === 'WEEKLY_OFF').length;
+    const actualWorkDays = worked + pn;
+    const targetDays = 26;
+    const progressPercent = Math.min(100, Math.round((actualWorkDays / targetDays) * 100));
+
+    return {
+      pn,
+      worked,
+      unpaid,
+      holidays,
+      weeklyOff,
+      actualWorkDays,
+      targetDays,
+      progressPercent,
+    };
   }, [items]);
 
   const totalHours = +(
@@ -41,17 +76,22 @@ export default function Dashboard({ onOpenAttendance, onOpenPayroll }: Props) {
     payroll.ot210Hours
   ).toFixed(2);
 
-  const workDays = summary.worked + summary.pn;
   const totalOtHours = +(payroll.ot150Hours + payroll.ot200Hours + payroll.ot210Hours).toFixed(2);
-  const completionPercent = Math.min(100, Math.round((workDays / 26) * 100));
 
-  const hourRows = [
-    { label: 'Giờ chuẩn', value: payroll.normalHours, color: theme.colors.primary, icon: 'time-outline' },
-    { label: 'Ca đêm', value: payroll.nightHours130, color: theme.colors.purple, icon: 'moon-outline' },
-    { label: 'OT 150%', value: payroll.ot150Hours, color: theme.colors.warning, icon: 'trending-up-outline' },
-    { label: 'OT 200%', value: payroll.ot200Hours, color: '#EA580C', icon: 'flame-outline' },
-    { label: 'OT 210%', value: payroll.ot210Hours, color: theme.colors.danger, icon: 'flash-outline' },
-  ] as const;
+  const handleQuickNav = (dest: AppRoute) => {
+    if (onNavigate) {
+      onNavigate(dest);
+    } else if (dest === 'Attendance' && onOpenAttendance) {
+      onOpenAttendance();
+    } else if (dest === 'Payroll' && onOpenPayroll) {
+      onOpenPayroll();
+    }
+  };
+
+  const isClockedIn = Boolean(todayRec?.shift?.start && !todayRec?.shift?.end);
+  const isClockedDone = Boolean(todayRec?.shift?.start && todayRec?.shift?.end);
+
+  const kpiWidth = isDesktop ? ('23.8%' as const) : ('48.2%' as const);
 
   return (
     <View style={styles.screen}>
@@ -60,266 +100,416 @@ export default function Dashboard({ onOpenAttendance, onOpenPayroll }: Props) {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        {/* Greeting Banner */}
-        <View style={styles.greetingCard}>
-          <View style={{ flex: 1 }}>
-            <View style={styles.greetingBadge}>
-              <Ionicons name="star" size={13} color={theme.colors.primary} />
-              <Text style={styles.greetingBadgeText}>Bảng tin chấm công</Text>
+        {/* Top Corporate Branding Banner with Factory Architecture */}
+        <View style={styles.corporateBanner}>
+          <View style={styles.bannerLeft}>
+            <View style={styles.badgeRow}>
+              <View style={styles.corpBadge}>
+                <Text style={styles.corpBadgeText}>HOJEONG ENTERPRISE</Text>
+              </View>
+              <Text style={styles.systemStatusText}>• Hệ thống vận hành ổn định</Text>
             </View>
-            <Text style={styles.hello}>Xin chào, Trí 👋</Text>
-            <Text style={styles.subhead}>Theo dõi tiến độ công và thu nhập chính xác</Text>
+
+            <View style={styles.mainTitleRow}>
+              <Text style={styles.mainTitle}>Chấm công – Tính lương </Text>
+              <Text style={styles.mainTitleRed}>HOJEONG</Text>
+            </View>
+
+            <Text style={styles.subtitle}>
+              Hệ thống quản lý nhân sự & công lương doanh nghiệp
+            </Text>
+
+            {/* Feature Pills from Reference Mockup */}
+            <View style={styles.featurePillsRow}>
+              <View style={styles.featurePill}>
+                <Ionicons name="flash" size={13} color={theme.colors.primary} />
+                <Text style={styles.featurePillText}>Chính xác</Text>
+              </View>
+              <View style={styles.featurePill}>
+                <Ionicons name="shield-checkmark" size={13} color={theme.colors.primary} />
+                <Text style={styles.featurePillText}>Ổn định</Text>
+              </View>
+              <View style={styles.featurePill}>
+                <Ionicons name="layers" size={13} color={theme.colors.primary} />
+                <Text style={styles.featurePillText}>Hiệu quả</Text>
+              </View>
+              <View style={styles.featurePill}>
+                <Ionicons name="people" size={13} color={theme.colors.primary} />
+                <Text style={styles.featurePillText}>Dễ sử dụng</Text>
+              </View>
+            </View>
           </View>
-          <View style={styles.avatarGlow}>
-            <Text style={styles.avatarText}>T</Text>
+
+          {/* Right: Modern HOJEONG Factory Banner */}
+          <View style={[styles.bannerRight, !isDesktop && styles.bannerRightMobile]}>
+            <View style={[styles.factoryImageWrapper, !isDesktop && styles.factoryImageWrapperMobile]}>
+              <Image
+                source={require('../../assets/images/hojeong_factory_banner.jpg')}
+                style={styles.factoryImage}
+                resizeMode="cover"
+                accessibilityLabel="Nhà máy hiện đại HOJEONG"
+              />
+              <View style={styles.factoryOverlayTag}>
+                <View style={styles.factoryTagDot} />
+                <Text style={styles.factoryTagText}>HOJEONG FACTORY CAMPUS</Text>
+              </View>
+            </View>
           </View>
         </View>
 
         {/* Month Selector */}
         <MonthSelector month={month} onChange={selectMonth} />
 
-        {/* KPI Grid */}
-        <View style={styles.kpis}>
-          <View style={styles.kpiCol}>
+        {/* 4 Primary KPI Cards */}
+        <View style={styles.kpiGrid}>
+          <View style={[styles.kpiCol, { width: kpiWidth }]}>
             <StatCard
               title="NGÀY CÔNG"
-              value={`${workDays} / 26`}
-              subtitle={`${completionPercent}% mục tiêu`}
+              value={`${summary.actualWorkDays} / ${summary.targetDays}`}
+              subtitle={`${summary.progressPercent}% mục tiêu tháng`}
               tone={theme.colors.primary}
-              icon={<Ionicons name="calendar" size={16} color={theme.colors.primary} />}
+              icon={<Ionicons name="calendar-outline" size={17} color={theme.colors.primary} />}
             />
           </View>
-          <View style={styles.kpiCol}>
+
+          <View style={[styles.kpiCol, { width: kpiWidth }]}>
             <StatCard
               title="TỔNG GIỜ LÀM"
               value={`${totalHours}h`}
-              subtitle="Tổng các loại ca"
+              subtitle={`Giờ chuẩn: ${payroll.normalHours}h`}
               tone={theme.colors.purple}
-              icon={<Ionicons name="time" size={16} color={theme.colors.purple} />}
+              icon={<Ionicons name="time-outline" size={17} color={theme.colors.purple} />}
             />
           </View>
-          <View style={styles.kpiCol}>
+
+          <View style={[styles.kpiCol, { width: kpiWidth }]}>
             <StatCard
               title="TĂNG CA (OT)"
               value={`${totalOtHours}h`}
-              subtitle="Hưởng hệ số OT"
-              tone={theme.colors.warning}
-              icon={<Ionicons name="flame" size={16} color={theme.colors.warning} />}
+              subtitle={`OT 150%: ${payroll.ot150Hours}h • 200%: ${payroll.ot200Hours}h`}
+              tone="#EA580C"
+              icon={<Ionicons name="trending-up-outline" size={17} color="#EA580C" />}
             />
           </View>
-          <View style={styles.kpiCol}>
+
+          <View style={[styles.kpiCol, { width: kpiWidth }]}>
             <StatCard
               title="DỰ KIẾN THỰC LĨNH"
-              value={formatVND(payroll.net)}
-              subtitle="Đã trừ BHXH"
-              small
+              value={formatVND(payroll.netPay)}
+              subtitle={`Tổng thu nhập: ${formatVND(payroll.grossPay)}`}
               tone={theme.colors.success}
-              icon={<Ionicons name="wallet" size={16} color={theme.colors.success} />}
+              icon={<Ionicons name="cash-outline" size={17} color={theme.colors.success} />}
             />
           </View>
         </View>
 
-        {/* Work Days Progress */}
-        <Card style={styles.sectionCard}>
-          <View style={styles.cardHeader}>
-            <View style={styles.headerLeft}>
-              <View style={[styles.headerIconBox, { backgroundColor: theme.colors.primarySoft }]}>
-                <Ionicons name="trending-up" size={18} color={theme.colors.primary} />
-              </View>
-              <View>
-                <Text style={styles.sectionTitle}>TIẾN ĐỘ CÔNG THÁNG</Text>
-                <Text style={styles.sectionSub}>Kỳ công tiêu chuẩn 26 ngày</Text>
-              </View>
+        {/* Section C: Chấm công ngay (Prominent Primary Action) */}
+        <Card style={styles.clockActionCard}>
+          <View style={styles.clockHeader}>
+            <View style={styles.clockIconBox}>
+              <Ionicons
+                name={isClockedIn ? 'radio' : isClockedDone ? 'checkmark-circle' : 'finger-print'}
+                size={22}
+                color={isClockedIn ? theme.colors.warning : isClockedDone ? theme.colors.success : theme.colors.primary}
+              />
             </View>
-            <View style={styles.percentPill}>
-              <Text style={styles.percentText}>{completionPercent}%</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.clockCardTitle}>
+                {isClockedIn
+                  ? 'ĐANG TRONG CA LÀM VIỆC'
+                  : isClockedDone
+                  ? 'CA HÔM NAY ĐÃ HOÀN TẤT'
+                  : 'CHẤM CÔNG HÔM NAY'}
+              </Text>
+              <Text style={styles.clockCardDesc}>
+                {isClockedIn
+                  ? `Đã vào ca lúc ${todayRec?.shift?.start}. Đừng quên bấm kết thúc ca khi ra về!`
+                  : isClockedDone
+                  ? `Thời gian: ${todayRec?.shift?.start} → ${todayRec?.shift?.end}. Ca làm đã được ghi nhận vào bảng lương.`
+                  : 'Ghi nhận giờ vào ca làm việc tiêu chuẩn HOJEONG (08:00 - 17:00).'}
+              </Text>
             </View>
-          </View>
-
-          <View style={styles.progressTrack}>
-            <View style={[styles.progressFill, { width: barWidth(workDays, 26) }]} />
-          </View>
-
-          <View style={styles.progressChips}>
-            <View style={styles.chip}>
-              <View style={[styles.chipDot, { backgroundColor: theme.colors.primary }]} />
-              <Text style={styles.chipText}>{summary.worked} ngày đi làm</Text>
-            </View>
-            <View style={styles.chip}>
-              <View style={[styles.chipDot, { backgroundColor: theme.colors.purple }]} />
-              <Text style={styles.chipText}>{summary.pn} phép năm (PN)</Text>
-            </View>
-            <View style={styles.chip}>
-              <View style={[styles.chipDot, { backgroundColor: theme.colors.slate400 }]} />
-              <Text style={styles.chipText}>{summary.rest} ngày nghỉ</Text>
-            </View>
-          </View>
-        </Card>
-
-        {/* Hour Distribution */}
-        <Card style={styles.sectionCard}>
-          <View style={styles.cardHeader}>
-            <View style={styles.headerLeft}>
-              <View style={[styles.headerIconBox, { backgroundColor: theme.colors.purpleSoft }]}>
-                <Ionicons name="pie-chart" size={18} color={theme.colors.purple} />
-              </View>
-              <View>
-                <Text style={styles.sectionTitle}>PHÂN BỔ GIỜ LÀM VIỆC</Text>
-                <Text style={styles.sectionSub}>Tổng cộng {totalHours} giờ được ghi nhận</Text>
-              </View>
-            </View>
-          </View>
-
-          <View style={{ marginTop: 6 }}>
-            {hourRows.map((row) => (
-              <View key={row.label} style={styles.hourRow}>
-                <View style={styles.hourLabelBox}>
-                  <Ionicons name={row.icon} size={15} color={row.color} style={{ marginRight: 6 }} />
-                  <Text style={styles.hourLabel}>{row.label}</Text>
-                </View>
-                <View style={styles.hourTrack}>
-                  <View
-                    style={[
-                      styles.hourFill,
-                      {
-                        width: barWidth(row.value, Math.max(totalHours, 1)),
-                        backgroundColor: row.color,
-                      },
-                    ]}
-                  />
-                </View>
-                <Text style={styles.hourValue}>{row.value}h</Text>
-              </View>
-            ))}
+            {isClockedIn ? (
+              <Button
+                title="KẾT THÚC CA (CHECK-OUT)"
+                variant="danger"
+                size="md"
+                icon={<Ionicons name="log-out-outline" size={18} color={theme.colors.white} />}
+                onPress={() => void clockOut()}
+              />
+            ) : isClockedDone ? (
+              <Button
+                title="Xem chi tiết ca"
+                variant="secondary"
+                size="md"
+                icon={<Ionicons name="eye-outline" size={18} color={theme.colors.slate700} />}
+                onPress={() => handleQuickNav('Attendance')}
+              />
+            ) : (
+              <Button
+                title="VÀO CA NGAY (CHECK-IN)"
+                variant="primary"
+                size="md"
+                icon={<Ionicons name="log-in-outline" size={18} color={theme.colors.white} />}
+                onPress={() => void clockIn()}
+              />
+            )}
           </View>
         </Card>
 
-        {/* Recent Activity */}
-        <Card style={styles.sectionCard}>
-          <View style={styles.cardHeader}>
-            <View style={styles.headerLeft}>
-              <View style={[styles.headerIconBox, { backgroundColor: theme.colors.warningSoft }]}>
-                <Ionicons name="list" size={18} color={theme.colors.warning} />
+        {/* 2-Column Desktop Grid for Section A & Section D */}
+        <View style={isDesktop ? styles.rowCols : styles.colStack}>
+          {/* Section A: Tiến độ công tháng */}
+          <Card style={[styles.sectionCard, isDesktop && { flex: 1.2 }]}>
+            <View style={styles.cardHeaderRow}>
+              <View style={styles.cardTitleWrap}>
+                <Ionicons name="bar-chart-outline" size={18} color={theme.colors.primary} />
+                <Text style={styles.cardTitleText}>TIẾN ĐỘ CÔNG THÁNG</Text>
               </View>
-              <View>
-                <Text style={styles.sectionTitle}>HOẠT ĐỘNG GẦN ĐÂY</Text>
-                <Text style={styles.sectionSub}>5 bản ghi chấm công mới nhất</Text>
+              <Text style={styles.progressPercentText}>{summary.progressPercent}%</Text>
+            </View>
+
+            <View style={styles.progressTrack}>
+              <View
+                style={[
+                  styles.progressFill,
+                  { width: `${summary.progressPercent}%`, backgroundColor: theme.colors.primary },
+                ]}
+              />
+            </View>
+
+            <View style={styles.progressStatsGrid}>
+              <View style={styles.progressStatItem}>
+                <Text style={styles.pStatLabel}>Mục tiêu công</Text>
+                <Text style={styles.pStatValue}>{summary.targetDays} ngày</Text>
+              </View>
+              <View style={styles.progressStatDivider} />
+              <View style={styles.progressStatItem}>
+                <Text style={styles.pStatLabel}>Đã tích lũy</Text>
+                <Text style={[styles.pStatValue, { color: theme.colors.primary }]}>
+                  {summary.actualWorkDays} ngày
+                </Text>
+              </View>
+              <View style={styles.progressStatDivider} />
+              <View style={styles.progressStatItem}>
+                <Text style={styles.pStatLabel}>Còn lại</Text>
+                <Text style={styles.pStatValue}>
+                  {Math.max(0, summary.targetDays - summary.actualWorkDays)} ngày
+                </Text>
               </View>
             </View>
-          </View>
+          </Card>
 
-          {summary.recent.length === 0 ? (
-            <View style={styles.emptyContainer}>
-              <View style={styles.emptyIconBox}>
-                <Ionicons name="calendar-outline" size={32} color={theme.colors.slate300} />
+          {/* Section D: Chức năng nhanh */}
+          <Card style={[styles.sectionCard, isDesktop && { flex: 1 }]}>
+            <View style={styles.cardHeaderRow}>
+              <View style={styles.cardTitleWrap}>
+                <Ionicons name="apps-outline" size={18} color={theme.colors.primary} />
+                <Text style={styles.cardTitleText}>CHỨC NĂNG NHANH</Text>
               </View>
-              <Text style={styles.emptyTitle}>Chưa có dữ liệu chấm công</Text>
-              <Text style={styles.emptySub}>Hãy bắt đầu vào ca hoặc nhập giờ thủ công cho tháng này</Text>
             </View>
-          ) : (
-            <View style={{ marginTop: 4 }}>
-              {summary.recent.map((item, idx) => {
-                const hours = computeWorkedHours(item);
-                const overtime = computeOvertimeForDay(item);
-                const ot = overtime.ot150 + overtime.ot200 + overtime.ot210;
 
-                const isPN = item.leaveType === 'PN' || item.leaveCode === 'PN';
-                const isUnpaid = item.leaveType === 'UNPAID';
-                const isOther = item.leaveType === 'OTHER';
-                const isHoliday = item.dayType === 'HOLIDAY';
-                const isWeeklyOff = item.dayType === 'WEEKLY_OFF';
+            <View style={styles.quickActionsGrid}>
+              <TouchableOpacity
+                style={styles.quickActionBtn}
+                onPress={() => handleQuickNav('Attendance')}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.quickIconBox, { backgroundColor: theme.colors.primarySoft }]}>
+                  <Ionicons name="calendar" size={18} color={theme.colors.primary} />
+                </View>
+                <Text style={styles.quickBtnText}>Chấm công</Text>
+              </TouchableOpacity>
 
-                const status = isPN
-                  ? 'Nghỉ phép năm (PN)'
-                  : isUnpaid
-                  ? 'Nghỉ không lương'
-                  : isOther
-                  ? 'Nghỉ khác'
-                  : isHoliday
-                  ? 'Nghỉ lễ'
-                  : isWeeklyOff
-                  ? 'Nghỉ tuần'
-                  : item.shift?.start
-                  ? `${item.shift.start} → ${item.shift.end || 'Đang làm'}`
-                  : 'Chưa có giờ';
+              <TouchableOpacity
+                style={styles.quickActionBtn}
+                onPress={() => handleQuickNav('Overtime')}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.quickIconBox, { backgroundColor: '#FFF7ED' }]}>
+                  <Ionicons name="time" size={18} color="#EA580C" />
+                </View>
+                <Text style={styles.quickBtnText}>Tăng ca (OT)</Text>
+              </TouchableOpacity>
 
+              <TouchableOpacity
+                style={styles.quickActionBtn}
+                onPress={() => handleQuickNav('Payroll')}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.quickIconBox, { backgroundColor: theme.colors.purpleSoft }]}>
+                  <Ionicons name="wallet" size={18} color={theme.colors.purple} />
+                </View>
+                <Text style={styles.quickBtnText}>Bảng lương</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.quickActionBtn}
+                onPress={() => handleQuickNav('History')}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.quickIconBox, { backgroundColor: theme.colors.purpleSoft }]}>
+                  <Ionicons name="time" size={18} color={theme.colors.purple} />
+                </View>
+                <Text style={styles.quickBtnText}>Lịch sử</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.quickActionBtn}
+                onPress={() => handleQuickNav('Salary')}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.quickIconBox, { backgroundColor: theme.colors.cyanSoft }]}>
+                  <Ionicons name="options" size={18} color={theme.colors.cyan} />
+                </View>
+                <Text style={styles.quickBtnText}>Cấu hình</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.quickActionBtn}
+                onPress={() => handleQuickNav('Reports')}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.quickIconBox, { backgroundColor: theme.colors.slate100 }]}>
+                  <Ionicons name="stats-chart" size={18} color={theme.colors.slate700} />
+                </View>
+                <Text style={styles.quickBtnText}>Báo cáo</Text>
+              </TouchableOpacity>
+            </View>
+          </Card>
+        </View>
+
+        {/* Section B & Section F: Lịch công tháng tóm tắt & Thống kê nhanh */}
+        <View style={isDesktop ? styles.rowCols : styles.colStack}>
+          {/* Section B: Lịch công tháng */}
+          <Card style={[styles.sectionCard, isDesktop && { flex: 1.3 }]}>
+            <View style={styles.cardHeaderRow}>
+              <View style={styles.cardTitleWrap}>
+                <Ionicons name="calendar-outline" size={18} color={theme.colors.primary} />
+                <Text style={styles.cardTitleText}>LỊCH CÔNG THÁNG {month}</Text>
+              </View>
+              <TouchableOpacity onPress={() => handleQuickNav('Attendance')}>
+                <Text style={styles.viewDetailLink}>Xem đầy đủ →</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Calendar Mini Grid */}
+            <View style={styles.calendarMiniGrid}>
+              {calendarDays.slice(0, 21).map((d) => {
+                const isW = Boolean(d.attendance?.shift?.start);
+                const isPn = d.attendance?.leaveType === 'PN';
+                const isOff = d.dayType === 'WEEKLY_OFF' || d.dayType === 'HOLIDAY';
                 return (
                   <View
-                    key={item.date}
+                    key={d.date}
                     style={[
-                      styles.activityRow,
-                      idx === summary.recent.length - 1 && { borderBottomWidth: 0 },
+                      styles.miniDayCell,
+                      isW && styles.miniDayWorked,
+                      isPn && styles.miniDayPn,
+                      isOff && styles.miniDayOff,
+                      d.date === today && styles.miniDayToday,
                     ]}
                   >
-                    <View style={styles.dateBadge}>
-                      <Text style={styles.dateDay}>{item.date.slice(8, 10)}</Text>
-                      <Text style={styles.dateMonth}>T{item.date.slice(5, 7)}</Text>
-                    </View>
-
-                    <View style={styles.activityInfo}>
-                      <View style={styles.activityTitleRow}>
-                        <Text style={styles.activityTitle}>{status}</Text>
-                        {ot > 0 && (
-                          <View style={styles.otBadge}>
-                            <Text style={styles.otBadgeText}>OT +{ot}h</Text>
-                          </View>
-                        )}
-                      </View>
-                      <Text style={styles.activityDetail}>
-                        {isPN
-                          ? '8h tính công · 100% lương'
-                          : hours
-                          ? `Đã làm ${hours} giờ`
-                          : item.note || 'Không có ghi chú'}
-                      </Text>
-                    </View>
+                    <Text
+                      style={[
+                        styles.miniDayText,
+                        isW && styles.miniDayTextWorked,
+                        d.date === today && styles.miniDayTextToday,
+                      ]}
+                    >
+                      {d.date.slice(-2)}
+                    </Text>
                   </View>
                 );
               })}
             </View>
-          )}
+
+            <View style={styles.legendRow}>
+              <View style={styles.legendItem}>
+                <View style={[styles.legendDot, { backgroundColor: theme.colors.success }]} />
+                <Text style={styles.legendLabel}>Đi làm</Text>
+              </View>
+              <View style={styles.legendItem}>
+                <View style={[styles.legendDot, { backgroundColor: theme.colors.primary }]} />
+                <Text style={styles.legendLabel}>Phép năm</Text>
+              </View>
+              <View style={styles.legendItem}>
+                <View style={[styles.legendDot, { backgroundColor: theme.colors.warning }]} />
+                <Text style={styles.legendLabel}>Nghỉ tuần / Lễ</Text>
+              </View>
+            </View>
+          </Card>
+
+          {/* Section F: Thống kê nhanh */}
+          <Card style={[styles.sectionCard, isDesktop && { flex: 1 }]}>
+            <View style={styles.cardHeaderRow}>
+              <View style={styles.cardTitleWrap}>
+                <Ionicons name="pie-chart-outline" size={18} color={theme.colors.primary} />
+                <Text style={styles.cardTitleText}>THỐNG KÊ CHI TIẾT</Text>
+              </View>
+            </View>
+
+            <View style={styles.statDetailList}>
+              <View style={styles.statDetailRow}>
+                <Text style={styles.statDetailLabel}>Số ngày đi làm</Text>
+                <Text style={[styles.statDetailVal, { color: theme.colors.successDark }]}>
+                  {summary.worked} ngày
+                </Text>
+              </View>
+              <View style={styles.statDetailRow}>
+                <Text style={styles.statDetailLabel}>Phép năm hưởng lương (PN)</Text>
+                <Text style={[styles.statDetailVal, { color: theme.colors.primary }]}>
+                  {summary.pn} ngày
+                </Text>
+              </View>
+              <View style={styles.statDetailRow}>
+                <Text style={styles.statDetailLabel}>Nghỉ không lương (K/L)</Text>
+                <Text style={styles.statDetailVal}>{summary.unpaid} ngày</Text>
+              </View>
+              <View style={styles.statDetailRow}>
+                <Text style={styles.statDetailLabel}>Nghỉ hàng tuần (Chủ nhật)</Text>
+                <Text style={styles.statDetailVal}>{summary.weeklyOff} ngày</Text>
+              </View>
+              <View style={styles.statDetailRow}>
+                <Text style={styles.statDetailLabel}>Thưởng chuyên cần dự kiến</Text>
+                <Text style={[styles.statDetailVal, { color: theme.colors.primary, fontWeight: '900' }]}>
+                  {formatVND(payroll.attendanceBonus)}
+                </Text>
+              </View>
+            </View>
+          </Card>
+        </View>
+
+        {/* Section E: Thông báo hệ thống */}
+        <Card style={styles.announcementCard}>
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={onOpenNotifications}
+            style={styles.announceHeader}
+            accessibilityRole="button"
+            accessibilityLabel="Mở danh sách thông báo hệ thống"
+          >
+            <View style={styles.announceHeaderLeft}>
+              <Ionicons name="notifications" size={18} color={theme.colors.primary} />
+              <Text style={styles.announceTitle}>THÔNG BÁO VẬN HÀNH DOANH NGHIỆP HOJEONG</Text>
+            </View>
+            {onOpenNotifications && (
+              <View style={styles.announceViewAll}>
+                <Text style={styles.announceViewAllText}>Xem tất cả</Text>
+                <Ionicons name="chevron-forward" size={13} color={theme.colors.primary} />
+              </View>
+            )}
+          </TouchableOpacity>
+          <View style={styles.announceContent}>
+            <Text style={styles.announceText}>
+              • Kỳ chốt công tháng {month} diễn ra vào ngày cuối cùng của tháng. Vui lòng kiểm tra và hoàn thành các bản ghi chấm công.
+            </Text>
+            <Text style={styles.announceText}>
+              • Hệ thống tự động tính lương theo biểu mẫu pháp quy Bộ luật Lao động, bao gồm bảo hiểm 10.5% và hệ số làm đêm, tăng ca.
+            </Text>
+          </View>
         </Card>
-
-        {/* Secondary Action Banner */}
-        <TouchableOpacity
-          accessibilityRole="button"
-          activeOpacity={0.8}
-          onPress={onOpenPayroll}
-          style={styles.secondaryActionCard}
-        >
-          <View style={[styles.actionIconPill, { backgroundColor: theme.colors.successSoft }]}>
-            <Ionicons name="wallet-outline" size={24} color={theme.colors.successDark} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.secondaryActionTitle}>BẢNG LƯƠNG CHI TIẾT</Text>
-            <Text style={styles.secondaryActionDesc}>Xem phiếu lương & phụ cấp</Text>
-          </View>
-          <View style={[styles.actionArrowCircle, { backgroundColor: theme.colors.slate100 }]}>
-            <Ionicons name="arrow-forward" size={16} color={theme.colors.slate700} />
-          </View>
-        </TouchableOpacity>
       </ScrollView>
-
-      {/* Pinned Bottom Area: CHẤM CÔNG NGÀY */}
-      <View style={styles.pinnedBottomBar}>
-        <TouchableOpacity
-          accessibilityRole="button"
-          activeOpacity={0.8}
-          onPress={onOpenAttendance}
-          style={styles.primaryActionCard}
-        >
-          <View style={styles.actionIconPill}>
-            <Ionicons name="finger-print-outline" size={24} color={theme.colors.white} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.primaryActionTitle}>CHẤM CÔNG NGÀY</Text>
-            <Text style={styles.primaryActionDesc}>Xem lịch & ghi nhận giờ làm</Text>
-          </View>
-          <View style={styles.actionArrowCircle}>
-            <Ionicons name="arrow-forward" size={16} color={theme.colors.primary} />
-          </View>
-        </TouchableOpacity>
-      </View>
     </View>
   );
 }
@@ -335,346 +525,427 @@ const styles = StyleSheet.create({
   content: {
     padding: 16,
     gap: 14,
-    paddingBottom: 24,
+    paddingBottom: 32,
   },
-  greetingCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+  corporateBanner: {
     backgroundColor: theme.colors.white,
     padding: 16,
     borderRadius: theme.radius.xl,
     borderWidth: 1,
     borderColor: theme.colors.border,
-    ...theme.shadows.card,
-  },
-  greetingBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: theme.colors.primarySoft,
-    alignSelf: 'flex-start',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: theme.radius.full,
-    gap: 4,
-    marginBottom: 6,
-  },
-  greetingBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: theme.colors.primary,
-  },
-  hello: {
-    fontSize: 22,
-    fontWeight: '900',
-    color: theme.colors.slate900,
-    letterSpacing: -0.3,
-  },
-  subhead: {
-    fontSize: 12,
-    color: theme.colors.slate500,
-    marginTop: 2,
-    fontWeight: '500',
-  },
-  avatarGlow: {
-    height: 48,
-    width: 48,
-    borderRadius: 24,
-    backgroundColor: theme.colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...theme.shadows.glow(theme.colors.primary),
-  },
-  avatarText: {
-    fontWeight: '900',
-    color: theme.colors.white,
-    fontSize: 20,
-  },
-  kpis: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  kpiCol: {
-    width: '48.1%',
-  },
-  sectionCard: {
-    padding: 18,
-    borderRadius: theme.radius.xl,
-  },
-  cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 14,
+    flexWrap: 'wrap',
+    gap: 12,
   },
-  headerLeft: {
+  bannerLeft: {
+    flex: 1,
+    minWidth: 260,
+  },
+  badgeRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
+    marginBottom: 6,
   },
-  headerIconBox: {
-    width: 36,
-    height: 36,
+  corpBadge: {
+    backgroundColor: theme.colors.primarySoft,
+    borderWidth: 1,
+    borderColor: theme.colors.primaryBorder,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: theme.radius.sm,
+  },
+  corpBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: theme.colors.primary,
+    letterSpacing: 0.5,
+  },
+  systemStatusText: {
+    fontSize: 11,
+    color: theme.colors.successDark,
+    fontWeight: '600',
+  },
+  mainTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+  },
+  mainTitle: {
+    fontSize: 20,
+    fontWeight: '900',
+    color: theme.colors.slate900,
+    letterSpacing: 0.3,
+  },
+  mainTitleRed: {
+    fontSize: 20,
+    fontWeight: '900',
+    color: theme.colors.primary,
+    letterSpacing: 0.3,
+  },
+  subtitle: {
+    fontSize: 12,
+    color: theme.colors.slate500,
+    marginTop: 2,
+  },
+  featurePillsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 10,
+  },
+  featurePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: theme.colors.slate50,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
     borderRadius: theme.radius.md,
+  },
+  featurePillText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: theme.colors.slate700,
+  },
+  bannerRight: {
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+  },
+  bannerRightMobile: {
+    width: '100%',
+    alignItems: 'stretch',
+    marginTop: 8,
+  },
+  factoryImageWrapper: {
+    width: 380,
+    height: 125,
+    borderRadius: theme.radius.lg,
+    overflow: 'hidden',
+    position: 'relative',
+    borderWidth: 1,
+    borderColor: theme.colors.borderLight,
+    backgroundColor: theme.colors.slate100,
+  },
+  factoryImageWrapperMobile: {
+    width: '100%',
+    height: 150,
+  },
+  factoryImage: {
+    width: '100%',
+    height: '100%',
+  },
+  factoryOverlayTag: {
+    position: 'absolute',
+    bottom: 8,
+    right: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: 'rgba(255, 255, 255, 0.94)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: theme.radius.full,
+    borderWidth: 1,
+    borderColor: 'rgba(215, 25, 32, 0.25)',
+  },
+  factoryTagDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: theme.colors.primary,
+  },
+  factoryTagText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: theme.colors.primaryDark,
+    letterSpacing: 0.5,
+  },
+  kpiGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    justifyContent: 'space-between',
+  },
+  kpiCol: {
+    marginBottom: 2,
+  },
+  clockActionCard: {
+    padding: 16,
+    borderRadius: theme.radius.xl,
+    borderWidth: 1.5,
+    borderColor: theme.colors.primaryBorder,
+    backgroundColor: theme.colors.white,
+  },
+  clockHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  clockIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: theme.radius.lg,
+    backgroundColor: theme.colors.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  sectionTitle: {
+  clockCardTitle: {
     fontSize: 13,
     fontWeight: '800',
-    letterSpacing: 0.5,
     color: theme.colors.slate900,
+    letterSpacing: 0.5,
   },
-  sectionSub: {
-    fontSize: 11,
-    color: theme.colors.slate400,
-    marginTop: 1,
-  },
-  percentPill: {
-    backgroundColor: theme.colors.primarySoft,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: theme.radius.full,
-  },
-  percentText: {
+  clockCardDesc: {
     fontSize: 12,
+    color: theme.colors.slate600,
+    marginTop: 2,
+  },
+  rowCols: {
+    flexDirection: 'row',
+    gap: 14,
+  },
+  colStack: {
+    flexDirection: 'column',
+    gap: 14,
+  },
+  sectionCard: {
+    padding: 16,
+    borderRadius: theme.radius.xl,
+  },
+  cardHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderColor: theme.colors.border,
+    marginBottom: 12,
+  },
+  cardTitleWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  cardTitleText: {
+    fontSize: 13,
     fontWeight: '800',
+    color: theme.colors.slate900,
+    letterSpacing: 0.4,
+  },
+  progressPercentText: {
+    fontSize: 14,
+    fontWeight: '900',
     color: theme.colors.primary,
   },
   progressTrack: {
-    height: 12,
-    borderRadius: theme.radius.full,
+    height: 10,
+    borderRadius: 5,
     backgroundColor: theme.colors.slate100,
     overflow: 'hidden',
+    marginBottom: 14,
   },
   progressFill: {
     height: '100%',
-    borderRadius: theme.radius.full,
-    backgroundColor: theme.colors.primary,
+    borderRadius: 5,
   },
-  progressChips: {
+  progressStatsGrid: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+  },
+  progressStatItem: {
+    alignItems: 'center',
+  },
+  pStatLabel: {
+    fontSize: 11,
+    color: theme.colors.slate400,
+    fontWeight: '600',
+  },
+  pStatValue: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: theme.colors.slate900,
+    marginTop: 2,
+  },
+  progressStatDivider: {
+    width: 1,
+    height: 24,
+    backgroundColor: theme.colors.border,
+  },
+  quickActionsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    gap: 8,
+    justifyContent: 'space-between',
+  },
+  quickActionBtn: {
+    width: '31%',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderRadius: theme.radius.md,
+    backgroundColor: theme.colors.slate50,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    gap: 6,
+  },
+  quickIconBox: {
+    width: 32,
+    height: 32,
+    borderRadius: theme.radius.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  quickBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: theme.colors.slate700,
+  },
+  viewDetailLink: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: theme.colors.primary,
+  },
+  calendarMiniGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginVertical: 10,
+  },
+  miniDayCell: {
+    width: 28,
+    height: 28,
+    borderRadius: 6,
+    backgroundColor: theme.colors.slate100,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  miniDayWorked: {
+    backgroundColor: theme.colors.successSoft,
+    borderWidth: 1,
+    borderColor: theme.colors.successBorder,
+  },
+  miniDayPn: {
+    backgroundColor: theme.colors.primarySoft,
+    borderWidth: 1,
+    borderColor: theme.colors.primaryBorder,
+  },
+  miniDayOff: {
+    backgroundColor: theme.colors.slate200,
+  },
+  miniDayToday: {
+    borderWidth: 1.5,
+    borderColor: theme.colors.primary,
+  },
+  miniDayText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: theme.colors.slate600,
+  },
+  miniDayTextWorked: {
+    color: theme.colors.successDark,
+  },
+  miniDayTextToday: {
+    color: theme.colors.primary,
+    fontWeight: '900',
+  },
+  legendRow: {
+    flexDirection: 'row',
     gap: 12,
-    marginTop: 14,
-    paddingTop: 12,
+    marginTop: 8,
+    paddingTop: 8,
     borderTopWidth: 1,
     borderColor: theme.colors.borderLight,
   },
-  chip: {
+  legendItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 4,
   },
-  chipDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+  legendDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
   },
-  chipText: {
+  legendLabel: {
+    fontSize: 10,
+    color: theme.colors.slate500,
+    fontWeight: '600',
+  },
+  statDetailList: {
+    gap: 8,
+  },
+  statDetailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 6,
+    borderBottomWidth: 1,
+    borderColor: theme.colors.borderLight,
+  },
+  statDetailLabel: {
     fontSize: 12,
     color: theme.colors.slate600,
     fontWeight: '600',
   },
-  hourRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 7,
-  },
-  hourLabelBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    width: 100,
-  },
-  hourLabel: {
+  statDetailVal: {
     fontSize: 12,
-    color: theme.colors.slate700,
-    fontWeight: '600',
-  },
-  hourTrack: {
-    flex: 1,
-    height: 8,
-    borderRadius: theme.radius.full,
-    overflow: 'hidden',
-    backgroundColor: theme.colors.slate100,
-    marginHorizontal: 8,
-  },
-  hourFill: {
-    height: '100%',
-    borderRadius: theme.radius.full,
-  },
-  hourValue: {
-    width: 50,
-    textAlign: 'right',
-    fontSize: 13,
     fontWeight: '800',
     color: theme.colors.slate800,
   },
-  emptyContainer: {
-    paddingVertical: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  emptyIconBox: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: theme.colors.slate100,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 8,
-  },
-  emptyTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: theme.colors.slate700,
-  },
-  emptySub: {
-    fontSize: 12,
-    color: theme.colors.slate400,
-    textAlign: 'center',
-    marginTop: 4,
-    maxWidth: 240,
-  },
-  activityRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 11,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.slate100,
-    gap: 12,
-  },
-  dateBadge: {
-    width: 42,
-    height: 42,
-    borderRadius: theme.radius.md,
+  announcementCard: {
+    padding: 14,
+    borderRadius: theme.radius.lg,
     backgroundColor: theme.colors.primarySoft,
-    alignItems: 'center',
-    justifyContent: 'center',
     borderWidth: 1,
     borderColor: theme.colors.primaryBorder,
   },
-  dateDay: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: theme.colors.primary,
-    lineHeight: 17,
-  },
-  dateMonth: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: theme.colors.primaryLight,
-  },
-  activityInfo: {
-    flex: 1,
-  },
-  activityTitleRow: {
+  announceHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: 8,
+    marginBottom: 6,
   },
-  activityTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: theme.colors.slate900,
+  announceHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
   },
-  otBadge: {
-    backgroundColor: theme.colors.warningSoft,
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    borderRadius: theme.radius.full,
+  announceViewAll: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    backgroundColor: theme.colors.white,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: theme.radius.sm,
+    borderWidth: 1,
+    borderColor: theme.colors.primaryBorder,
   },
-  otBadgeText: {
+  announceViewAllText: {
     fontSize: 10,
     fontWeight: '800',
-    color: theme.colors.warningDark,
+    color: theme.colors.primary,
   },
-  activityDetail: {
+  announceTitle: {
     fontSize: 11,
-    color: theme.colors.slate500,
-    marginTop: 2,
+    fontWeight: '900',
+    color: theme.colors.primaryDark,
+    letterSpacing: 0.5,
   },
-  pinnedBottomBar: {
-    backgroundColor: theme.colors.white,
-    borderTopWidth: 1,
-    borderColor: theme.colors.border,
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 10,
-    flexShrink: 0,
-    zIndex: 40,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: -3 },
-        shadowOpacity: 0.05,
-        shadowRadius: 6,
-      },
-      android: {
-        elevation: 6,
-      },
-      web: {
-        boxShadow: '0 -2px 10px rgba(0,0,0,0.04)',
-      },
-    }),
+  announceContent: {
+    gap: 4,
   },
-  primaryActionCard: {
-    backgroundColor: theme.colors.primary,
-    borderRadius: theme.radius.xl,
-    padding: 18,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-    ...theme.shadows.glow(theme.colors.primary),
-  },
-  actionIconPill: {
-    width: 46,
-    height: 46,
-    borderRadius: theme.radius.lg,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  primaryActionTitle: {
-    color: theme.colors.white,
-    fontSize: 15,
-    fontWeight: '800',
-    letterSpacing: 0.3,
-  },
-  primaryActionDesc: {
-    color: 'rgba(255, 255, 255, 0.8)',
-    fontSize: 12,
-    marginTop: 2,
-  },
-  actionArrowCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: theme.colors.white,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  secondaryActionCard: {
-    backgroundColor: theme.colors.white,
-    borderRadius: theme.radius.xl,
-    padding: 18,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    ...theme.shadows.card,
-  },
-  secondaryActionTitle: {
-    color: theme.colors.slate900,
-    fontSize: 15,
-    fontWeight: '800',
-    letterSpacing: 0.3,
-  },
-  secondaryActionDesc: {
-    color: theme.colors.slate500,
-    fontSize: 12,
-    marginTop: 2,
+  announceText: {
+    fontSize: 11,
+    color: theme.colors.slate700,
+    lineHeight: 18,
   },
 });

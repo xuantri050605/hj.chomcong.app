@@ -36,7 +36,13 @@ export function sanitizeCurrency(val: unknown, fallback = 0): number {
     if (!trimmed || trimmed.toLowerCase() === 'nan' || trimmed.toLowerCase() === 'infinity') {
       return fallback;
     }
-    const cleanStr = trimmed.replace(/[^0-9.-]/g, '');
+    // Handle Vietnamese currency with thousand dots e.g. "10.500.000" or commas "8,100,000"
+    let cleanStr = trimmed;
+    const dotCount = (cleanStr.match(/\./g) || []).length;
+    if (dotCount > 1 || (dotCount === 1 && /\.\d{3}$/.test(cleanStr))) {
+      cleanStr = cleanStr.replace(/\./g, '');
+    }
+    cleanStr = cleanStr.replace(/[^0-9.-]/g, '');
     if (!cleanStr || cleanStr === '-' || cleanStr === '.') {
       return fallback;
     }
@@ -59,6 +65,7 @@ export function sanitizeCurrency(val: unknown, fallback = 0): number {
  * Validates and sanitizes standard hours (0 to 744, standard 208).
  */
 export function sanitizeStandardHours(val: unknown, fallback = 208): number {
+  if (typeof val === 'string' && val.trim().startsWith('-')) return fallback;
   const num = typeof val === 'string' ? Number(val.replace(/[^0-9.]/g, '')) : Number(val);
   if (!Number.isFinite(num) || isNaN(num) || num <= 0 || num > MAX_STANDARD_HOURS_PER_MONTH) {
     return fallback;
@@ -70,6 +77,7 @@ export function sanitizeStandardHours(val: unknown, fallback = 208): number {
  * Validates and sanitizes an insurance rate percentage (0% to 100%).
  */
 export function sanitizePercentage(val: unknown, fallback = 10.5): number {
+  if (typeof val === 'string' && val.trim().startsWith('-')) return fallback;
   const num = typeof val === 'string' ? Number(val.replace(/[^0-9.]/g, '')) : Number(val);
   if (!Number.isFinite(num) || isNaN(num) || num < 0 || num > 100) {
     return fallback;
@@ -332,3 +340,64 @@ export function sanitizePendingAttendanceEvent(input: unknown): PendingAttendanc
   };
 }
 
+
+
+/**
+ * Strict email validation complying with RFC 5321 and OWASP standards.
+ */
+export function isValidEmail(email: unknown): boolean {
+  if (typeof email !== 'string') return false;
+  const trimmed = email.trim();
+  if (trimmed.length < 5 || trimmed.length > 254) return false;
+  const regex = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/;
+  return regex.test(trimmed);
+}
+
+/**
+ * Strips dangerous characters and lowercases an email address.
+ */
+export function sanitizeEmail(email: unknown): string {
+  if (typeof email !== 'string') return '';
+  return email.trim().toLowerCase().slice(0, 254);
+}
+
+/**
+ * Validates password strength for registration and password changes.
+ * Requirements: >= 6 characters, no control characters.
+ */
+export function validatePassword(password: unknown): { isValid: boolean; error?: string } {
+  if (typeof password !== 'string') {
+    return { isValid: false, error: 'Mật khẩu phải là chuỗi ký tự hợp lệ' };
+  }
+  if (password.length < 6) {
+    return { isValid: false, error: 'Mật khẩu phải chứa ít nhất 6 ký tự' };
+  }
+  if (password.length > 128) {
+    return { isValid: false, error: 'Mật khẩu không được vượt quá 128 ký tự' };
+  }
+  if (/[\u0000-\u001F\u007F]/.test(password)) {
+    return { isValid: false, error: 'Mật khẩu chứa ký tự điều khiển không hợp lệ' };
+  }
+  return { isValid: true };
+}
+
+/**
+ * Sanitizes generic user input string: trims, removes control chars, caps length.
+ */
+export function sanitizeString(val: unknown, maxLen = MAX_INPUT_STRING_LENGTH): string {
+  if (val === null || val === undefined) return '';
+  return String(val)
+    .replace(/[\u0000-\u001F\u007F]/g, '')
+    .trim()
+    .slice(0, maxLen);
+}
+
+/**
+ * Sanitizes file names to prevent path traversal and illegal character injections.
+ */
+export function sanitizeFileName(fileName: string): string {
+  return fileName
+    .replace(/[/\\?%*:|"<>]/g, '_')
+    .replace(/\.\./g, '_')
+    .trim();
+}

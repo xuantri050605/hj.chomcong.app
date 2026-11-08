@@ -38,3 +38,31 @@ ios/
 Thumbs.db
 *.swp
 *.bak
+
+# SQLite Local Databases & WAL/Journals (Never commit local database files)
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+*.db-wal
+*.db-shm
+payroll.db
+payroll.db-*
+
+# Local Database Backups & Migration Snapshots
+backups/
+local-backups/
+migration-backups/
+*.backup
+*.snapshot
+
+# User-specific exported documents
+*.csv
+*.pdf
+*.xlsx
+*.xls
+!scripts/**/*.csv
+
+# Agent scratch & Teamwork logs
+.agents/
+.gemini/

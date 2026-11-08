@@ -1,13 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Card from './Card';
 import Button from './Button';
 import { theme } from '../theme/theme';
+import { usePulseAnim } from '../hooks/usePulseAnim';
 
 export default function AttendanceStatusCard({ state }: { state: any }) {
   // Live clock
   const [currentTime, setCurrentTime] = useState(() => new Date());
+  const isWorking = state.mode === 'working';
+  const { pulseScale, pulseOpacity } = usePulseAnim(isWorking);
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -87,7 +90,18 @@ export default function AttendanceStatusCard({ state }: { state: any }) {
             <Text style={[styles.clockDigital, { color: theme.colors.primaryDark }]}>{timeString}</Text>
           </View>
           <View style={[styles.badge, styles.badgeWorking]}>
-            <View style={[styles.statusDot, { backgroundColor: theme.colors.success }]} />
+            <View style={styles.pulseContainer}>
+              <Animated.View
+                style={[
+                  styles.pulseRing,
+                  {
+                    transform: [{ scale: pulseScale }],
+                    opacity: pulseOpacity,
+                  },
+                ]}
+              />
+              <View style={[styles.statusDot, { backgroundColor: theme.colors.success }]} />
+            </View>
             <Text style={styles.badgeWorkingText}>Đang trong ca</Text>
           </View>
         </View>
@@ -105,14 +119,27 @@ export default function AttendanceStatusCard({ state }: { state: any }) {
 
           <View style={styles.workingSourceBox}>
             <Text style={styles.workingCheckInLabel}>XÁC THỰC</Text>
-            <View style={[styles.sourceTag, state.source === 'GEOFENCE_CONFIRMED' && { backgroundColor: theme.colors.successSoft }]}>
+            <View
+              style={[
+                styles.sourceTag,
+                state.source === 'GEOFENCE_CONFIRMED' && { backgroundColor: theme.colors.successSoft },
+              ]}
+            >
               <Ionicons
                 name={state.source === 'GEOFENCE_CONFIRMED' ? 'location-sharp' : 'phone-portrait-outline'}
                 size={16}
                 color={state.source === 'GEOFENCE_CONFIRMED' ? theme.colors.successDark : theme.colors.slate600}
                 style={{ marginRight: 4 }}
               />
-              <Text style={[styles.sourceTagText, state.source === 'GEOFENCE_CONFIRMED' && { color: theme.colors.successDark, fontWeight: '700' }]}>
+              <Text
+                style={[
+                  styles.sourceTagText,
+                  state.source === 'GEOFENCE_CONFIRMED' && {
+                    color: theme.colors.successDark,
+                    fontWeight: '700',
+                  },
+                ]}
+              >
                 {state.source === 'GEOFENCE_CONFIRMED'
                   ? `GPS Geofence${state.gpsMetadata?.distance !== undefined ? ` (${state.gpsMetadata.distance}m)` : ''}`
                   : 'Thiết bị cá nhân'}
@@ -254,11 +281,25 @@ const styles = StyleSheet.create({
     color: theme.colors.successDark,
     fontWeight: '800',
   },
+  pulseContainer: {
+    width: 14,
+    height: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 6,
+    position: 'relative',
+  },
+  pulseRing: {
+    position: 'absolute',
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: 'rgba(16, 185, 129, 0.4)',
+  },
   statusDot: {
     width: 7,
     height: 7,
     borderRadius: 3.5,
-    marginRight: 6,
   },
   divider: {
     height: 1,

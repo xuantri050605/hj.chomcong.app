@@ -1,46 +1,143 @@
-import React from 'react';
-import { View, Text, StyleSheet, Platform, Image } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, Platform, TouchableOpacity, TextInput, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../theme/theme';
+import { useAuthStore } from '../store/authStore';
+import HojeongLogo from './HojeongLogo';
+import SyncStatusBadge from './SyncStatusBadge';
 
-export default function AppHeader({ title, user }: { title: string; user?: string }) {
-  const userName = user || 'Nguyễn Xuân Trí';
-  const initial = userName.trim().split(' ').pop()?.charAt(0).toUpperCase() || 'U';
+export interface AppHeaderProps {
+  onToggleSidebar?: () => void;
+  isSidebarCollapsed?: boolean;
+  onOpenNotifications?: () => void;
+  unreadCount?: number;
+  onOpenHelp?: () => void;
+  onPressUser?: () => void;
+  showLogo?: boolean;
+}
+
+export default function AppHeader({
+  onToggleSidebar,
+  isSidebarCollapsed = false,
+  onOpenNotifications,
+  unreadCount,
+  onOpenHelp,
+  onPressUser,
+  showLogo = false,
+}: AppHeaderProps) {
+  const user = useAuthStore((s) => s.user);
+  const openAuthModal = useAuthStore((s) => s.openAuthModal);
+  const [searchQuery, setSearchQuery] = useState('');
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 768;
+
+  const handleUserClick = () => {
+    if (onPressUser) {
+      onPressUser();
+    } else {
+      openAuthModal();
+    }
+  };
 
   return (
     <View style={styles.header}>
       <View style={styles.headerInner}>
-        {/* Brand logo & name */}
-        <View style={styles.brandContainer}>
-          <Image
-            source={require('../../assets/icon.png')}
-            style={styles.logoImage}
-            resizeMode="cover"
-          />
-          <View>
-            <View style={styles.titleRow}>
-              <Text style={styles.brandTitle}>CHẤM CÔNG</Text>
-              <View style={styles.proBadge}>
-                <Text style={styles.proText}>PRO</Text>
-              </View>
+        {/* Left: Sidebar Toggle & optional Brand */}
+        <View style={styles.leftSection}>
+          {onToggleSidebar && (
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={onToggleSidebar}
+              style={styles.iconButton}
+              accessibilityLabel="Mở/Đóng thanh điều hướng"
+            >
+              <Ionicons
+                name={isSidebarCollapsed ? 'menu-outline' : 'menu'}
+                size={22}
+                color={theme.colors.slate700}
+              />
+            </TouchableOpacity>
+          )}
+
+          {showLogo && (
+            <View style={styles.mobileLogoWrap}>
+              <HojeongLogo size="sm" showSubtitle={false} />
             </View>
-            <Text style={styles.brandSubtitle}>Hệ thống chấm công thông minh</Text>
-          </View>
+          )}
         </View>
 
-        {/* User profile capsule */}
-        <View style={styles.userCapsule}>
-          <View style={styles.userInfo}>
-            <Text style={styles.userName} numberOfLines={1}>{userName}</Text>
-            <View style={styles.statusRow}>
-              <View style={styles.onlineDot} />
-              <Text style={styles.statusText}>Đang hoạt động</Text>
+        {/* Center: Search Input (Desktop Only - Matching Reference Image) */}
+        {isDesktop && (
+          <View style={styles.searchSection}>
+            <View style={styles.searchBar}>
+              <Ionicons name="search-outline" size={17} color={theme.colors.slate400} />
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Tìm kiếm nhân viên, mã, ca làm..."
+                placeholderTextColor={theme.colors.slate400}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+              />
+              <View style={styles.kbdBadge}>
+                <Text style={styles.kbdText}>Ctrl + K</Text>
+              </View>
             </View>
           </View>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{initial}</Text>
-            <View style={styles.avatarBadge} />
-          </View>
+        )}
+
+        {/* Right Section: System Actions & Auth */}
+        <View style={styles.rightSection}>
+          {/* Live Cloud Sync Status Badge */}
+          <SyncStatusBadge />
+
+          {/* Notifications Button */}
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={onOpenNotifications}
+            style={styles.iconButton}
+            accessibilityRole="button"
+            accessibilityLabel={
+              unreadCount !== undefined
+                ? `Thông báo hệ thống (${unreadCount} chưa đọc)`
+                : 'Thông báo hệ thống'
+            }
+          >
+            <Ionicons name="notifications-outline" size={20} color={theme.colors.slate700} />
+            {unreadCount !== 0 && (
+              <View style={unreadCount ? styles.notifBadgeWithCount : styles.notifBadge}>
+                {typeof unreadCount === 'number' && unreadCount > 0 && (
+                  <Text style={styles.notifBadgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
+                )}
+              </View>
+            )}
+          </TouchableOpacity>
+
+          {/* Help Button */}
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={onOpenHelp}
+            style={styles.iconButton}
+            accessibilityLabel="Trợ giúp hệ thống"
+          >
+            <Ionicons name="help-circle-outline" size={20} color={theme.colors.slate700} />
+          </TouchableOpacity>
+
+          {/* Account / Auth Button */}
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={handleUserClick}
+            style={styles.accountBtn}
+            accessibilityRole="button"
+            accessibilityLabel={user ? `Tài khoản: ${user.email}` : 'Đăng nhập tài khoản'}
+          >
+            <View style={[styles.avatarBox, user && styles.avatarBoxActive]}>
+              <Ionicons
+                name={user ? 'person' : 'person-outline'}
+                size={16}
+                color={user ? theme.colors.white : theme.colors.slate700}
+              />
+            </View>
+          </TouchableOpacity>
         </View>
       </View>
     </View>
@@ -49,150 +146,143 @@ export default function AppHeader({ title, user }: { title: string; user?: strin
 
 const styles = StyleSheet.create({
   header: {
-    height: 64,
-    width: '100%',
     backgroundColor: theme.colors.white,
     borderBottomWidth: 1,
     borderColor: theme.colors.border,
-    alignItems: 'center',
+    height: 60,
     justifyContent: 'center',
-    flexShrink: 0,
-    zIndex: 50,
+    paddingHorizontal: 16,
+    zIndex: 30,
     ...Platform.select({
       ios: {
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.04,
-        shadowRadius: 6,
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 3,
       },
       android: {
-        elevation: 3,
+        elevation: 2,
       },
       web: {
-        boxShadow: '0 2px 8px rgba(0,0,0,0.03)',
-        position: 'sticky' as any,
-        top: 0,
+        boxShadow: '0 1px 3px rgba(0, 0, 0, 0.03)',
       },
     }),
   },
   headerInner: {
-    maxWidth: 1200,
-    width: '100%',
-    height: '100%',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
+    width: '100%',
   },
-  brandContainer: {
+  leftSection: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 12,
   },
-  logoImage: {
-    width: 38,
-    height: 38,
-    borderRadius: theme.radius.md,
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.06)',
+  mobileLogoWrap: {
+    marginLeft: 4,
   },
-  logoBadge: {
-    width: 38,
-    height: 38,
-    borderRadius: theme.radius.md,
-    backgroundColor: theme.colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...theme.shadows.glow(theme.colors.primary),
+  searchSection: {
+    flex: 1,
+    maxWidth: 480,
+    marginHorizontal: 16,
+    ...Platform.select({
+      default: {},
+    }),
   },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  brandTitle: {
-    color: theme.colors.slate900,
-    fontWeight: '800',
-    fontSize: 16,
-    letterSpacing: 0.5,
-  },
-  proBadge: {
-    backgroundColor: theme.colors.purple,
-    paddingHorizontal: 6,
-    paddingVertical: 1.5,
-    borderRadius: theme.radius.full,
-  },
-  proText: {
-    color: theme.colors.white,
-    fontSize: 10,
-    fontWeight: '900',
-    letterSpacing: 0.5,
-  },
-  brandSubtitle: {
-    fontSize: 11,
-    color: theme.colors.slate400,
-    fontWeight: '500',
-  },
-  userCapsule: {
+  searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: theme.colors.slate50,
-    paddingVertical: 4,
-    paddingLeft: 10,
-    paddingRight: 4,
-    borderRadius: theme.radius.full,
     borderWidth: 1,
-    borderColor: theme.colors.border,
+    borderColor: theme.colors.borderLight,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    height: 36,
     gap: 8,
   },
-  userInfo: {
-    alignItems: 'flex-end',
-  },
-  userName: {
+  searchInput: {
+    flex: 1,
+    fontSize: 13,
     color: theme.colors.slate800,
-    fontSize: 12,
-    fontWeight: '700',
-    maxWidth: 100,
+    padding: 0,
+    ...Platform.select({
+      web: {
+        outlineStyle: 'none' as any,
+      },
+    }),
   },
-  statusRow: {
+  kbdBadge: {
+    backgroundColor: theme.colors.white,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  kbdText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: theme.colors.slate400,
+  },
+  rightSection: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 8,
   },
-  onlineDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: theme.colors.success,
-  },
-  statusText: {
-    fontSize: 9,
-    color: theme.colors.slate500,
-    fontWeight: '600',
-  },
-  avatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: theme.colors.primaryLight,
+  iconButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
+    backgroundColor: theme.colors.slate50,
   },
-  avatarText: {
-    color: theme.colors.white,
-    fontWeight: '800',
-    fontSize: 13,
-  },
-  avatarBadge: {
+  notifBadge: {
     position: 'absolute',
-    bottom: -1,
-    right: -1,
-    width: 9,
-    height: 9,
-    borderRadius: 4.5,
-    backgroundColor: theme.colors.success,
+    top: 7,
+    right: 8,
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    backgroundColor: theme.colors.primary,
+  },
+  notifBadgeWithCount: {
+    position: 'absolute',
+    top: 2,
+    right: 2,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: theme.colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 3,
     borderWidth: 1.5,
     borderColor: theme.colors.white,
+  },
+  notifBadgeText: {
+    color: theme.colors.white,
+    fontSize: 9,
+    fontWeight: '800',
+    lineHeight: 11,
+  },
+  accountBtn: {
+    marginLeft: 4,
+  },
+  avatarBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: theme.colors.slate100,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  avatarBoxActive: {
+    backgroundColor: theme.colors.primary,
+    borderColor: theme.colors.primaryDark,
   },
 });

@@ -1,10 +1,42 @@
-export type AppRoute = 'Dashboard' | 'Attendance' | 'Payroll' | 'Salary' | 'History';
+export type AppRoute =
+  | 'Dashboard'
+  | 'Attendance'
+  | 'Overtime'
+  | 'Payroll'
+  | 'Salary'
+  | 'History'
+  | 'Reports';
 
-export const APP_ROUTES: readonly AppRoute[] = ['Dashboard', 'Attendance', 'Payroll', 'Salary', 'History'] as const;
+export const APP_ROUTES: readonly AppRoute[] = [
+  'Dashboard',
+  'Attendance',
+  'Overtime',
+  'Payroll',
+  'Salary',
+  'History',
+  'Reports',
+] as const;
 
 /** Route-only transitions. Month belongs to the shared attendance store, never route params. */
-export function dashboardDestination(action: 'attendance' | 'payroll'): AppRoute {
-  return action === 'attendance' ? 'Attendance' : 'Payroll';
+export function dashboardDestination(
+  action: 'attendance' | 'payroll' | 'overtime' | 'salary' | 'history' | 'reports'
+): AppRoute {
+  switch (action) {
+    case 'attendance':
+      return 'Attendance';
+    case 'payroll':
+      return 'Payroll';
+    case 'overtime':
+      return 'Overtime';
+    case 'salary':
+      return 'Salary';
+    case 'history':
+      return 'History';
+    case 'reports':
+      return 'Reports';
+    default:
+      return 'Dashboard';
+  }
 }
 
 export function backToDashboard(): AppRoute {
@@ -12,7 +44,7 @@ export function backToDashboard(): AppRoute {
 }
 
 export function isValidRoute(r: string): r is AppRoute {
-  return (APP_ROUTES as readonly string[]).includes(r);
+  return (APP_ROUTES as readonly string[]).includes(r as AppRoute);
 }
 
 /** Parses a URL hash (e.g. #attendance or #/payroll) into a valid AppRoute */

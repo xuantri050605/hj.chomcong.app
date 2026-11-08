@@ -1,11 +1,23 @@
 import React from 'react';
-import { TouchableOpacity, Text, StyleSheet, ViewStyle, TextStyle, StyleProp, View } from 'react-native';
+import {
+  TouchableOpacity,
+  Text,
+  StyleSheet,
+  ViewStyle,
+  TextStyle,
+  StyleProp,
+  View,
+  Animated,
+} from 'react-native';
 import { theme } from '../theme/theme';
+import { useButtonPressAnim } from '../hooks/useButtonPressAnim';
+
+const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
 
 export type ButtonVariant = 'primary' | 'secondary' | 'success' | 'danger' | 'outline' | 'ghost';
 export type ButtonSize = 'sm' | 'md' | 'lg';
 
-interface ButtonProps {
+export interface ButtonProps {
   title: string;
   onPress?: () => void;
   variant?: ButtonVariant;
@@ -26,15 +38,20 @@ export default function Button({
   style,
   textStyle,
 }: ButtonProps) {
+  const { scale, onPressIn, onPressOut } = useButtonPressAnim();
+
   return (
-    <TouchableOpacity
-      activeOpacity={0.75}
+    <AnimatedTouchable
+      activeOpacity={0.82}
       onPress={onPress}
+      onPressIn={disabled ? undefined : onPressIn}
+      onPressOut={disabled ? undefined : onPressOut}
       disabled={disabled}
       style={[
         styles.base,
         styles[variant],
         styles[size],
+        { transform: [{ scale }] },
         disabled && styles.disabled,
         style,
       ]}
@@ -53,7 +70,7 @@ export default function Button({
           {title}
         </Text>
       </View>
-    </TouchableOpacity>
+    </AnimatedTouchable>
   );
 }
 
@@ -78,7 +95,7 @@ const styles = StyleSheet.create({
 
   // Sizes
   sm: {
-    paddingVertical: 7,
+    paddingVertical: 8,
     paddingHorizontal: 12,
     borderRadius: theme.radius.sm,
   },

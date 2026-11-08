@@ -3,12 +3,12 @@ import { View, TouchableOpacity, Text, StyleSheet, Platform } from 'react-native
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../theme/theme';
 
-interface NavItem {
+export interface NavItem {
   key: string;
   label: string;
 }
 
-interface BottomNavigationProps {
+export interface BottomNavigationProps {
   items: NavItem[];
   activeKey?: string;
   onSelect: (key: string) => void;
@@ -17,15 +17,19 @@ interface BottomNavigationProps {
 const getTabIcon = (key: string, isActive: boolean): keyof typeof Ionicons.glyphMap => {
   switch (key) {
     case 'Dashboard':
-      return isActive ? 'grid' : 'grid-outline';
+      return isActive ? 'home' : 'home-outline';
     case 'Attendance':
       return isActive ? 'calendar' : 'calendar-outline';
+    case 'Overtime':
+      return isActive ? 'time' : 'time-outline';
     case 'Payroll':
-      return isActive ? 'wallet' : 'wallet-outline';
+      return isActive ? 'layers' : 'layers-outline';
     case 'Salary':
-      return isActive ? 'options' : 'options-outline';
+      return isActive ? 'settings' : 'settings-outline';
     case 'History':
       return isActive ? 'time' : 'time-outline';
+    case 'Reports':
+      return isActive ? 'stats-chart' : 'stats-chart-outline';
     default:
       return isActive ? 'apps' : 'apps-outline';
   }
@@ -52,7 +56,7 @@ export default function BottomNavigation({ items, activeKey, onSelect }: BottomN
                 <Ionicons
                   name={iconName}
                   size={20}
-                  color={isActive ? theme.colors.primary : theme.colors.slate400}
+                  color={isActive ? theme.colors.primary : theme.colors.slate500}
                 />
               </View>
               <Text
@@ -84,36 +88,36 @@ const styles = StyleSheet.create({
     ...Platform.select({
       ios: {
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: -3 },
+        shadowOffset: { width: 0, height: -2 },
         shadowOpacity: 0.05,
-        shadowRadius: 8,
+        shadowRadius: 6,
       },
       android: {
-        elevation: 10,
+        elevation: 8,
       },
       web: {
-        boxShadow: '0 -2px 10px rgba(0,0,0,0.04)',
+        boxShadow: '0 -2px 10px rgba(0,0,0,0.03)',
         position: 'sticky' as any,
         bottom: 0,
       },
     }),
   },
   bar: {
-    height: 68,
-    maxWidth: 1200,
+    height: 64,
+    maxWidth: 1440,
     width: '100%',
     alignSelf: 'center',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-around',
-    paddingHorizontal: 8,
-    paddingBottom: Platform.OS === 'ios' ? 8 : 2,
+    paddingHorizontal: 4,
+    paddingBottom: Platform.OS === 'ios' ? 6 : 2,
   },
   item: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 6,
+    paddingVertical: 4,
     position: 'relative',
   },
   iconWrapper: {
@@ -131,7 +135,7 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: theme.colors.slate500,
     fontWeight: '600',
-    letterSpacing: 0.2,
+    letterSpacing: 0.1,
   },
   activeLabel: {
     color: theme.colors.primary,

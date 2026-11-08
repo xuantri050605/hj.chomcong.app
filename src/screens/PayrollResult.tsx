@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, Platform, Share, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { calculatePayroll } from '../engine/payrollCalculator';
@@ -8,12 +8,32 @@ import { formatVND } from '../utils/format';
 import { savePayroll } from '../utils/persistence';
 import MonthSelector from '../components/MonthSelector';
 import Card from '../components/Card';
+import PayslipModal from '../components/PayslipModal';
+import { useAuthStore } from '../store/authStore';
 import { theme } from '../theme/theme';
 
 export default function PayrollResult() {
   const { items, month, selectMonth } = useAttendanceStore();
   const cfg = useSalaryStore((s) => s.config);
+  const user = useAuthStore((s) => s.user);
   const res = calculatePayroll(items, cfg);
+
+  const [isPayslipModalOpen, setIsPayslipModalOpen] = useState(false);
+
+  // Accordion open/close state
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({
+    contract: true,
+    a2: true,
+    a1: true,
+    a4: true,
+    b1: true,
+    b2: true,
+    b4: true,
+  });
+
+  const toggleSection = (key: string) => {
+    setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
 
   useEffect(() => {
     void savePayroll(month, res);
@@ -30,7 +50,7 @@ export default function PayrollResult() {
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-      {/* Title & Share Action */}
+      {/* Title & Actions */}
       <View style={styles.titleRow}>
         <View style={styles.titleLeft}>
           <View style={styles.titleIconBadge}>
@@ -41,12 +61,30 @@ export default function PayrollResult() {
             <Text style={styles.subtitle}>Chi tiết theo chuẩn bảng lương Excel</Text>
           </View>
         </View>
-        <TouchableOpacity activeOpacity={0.7} onPress={sharePayslip} style={styles.shareBtn}>
-          <Ionicons name="share-social-outline" size={18} color={theme.colors.primary} />
-        </TouchableOpacity>
+
+        <View style={styles.titleActions}>
+          <TouchableOpacity
+            accessibilityLabel="Xuất Phiếu Lương PDF"
+            activeOpacity={0.8}
+            onPress={() => setIsPayslipModalOpen(true)}
+            style={styles.exportPdfBtn}
+          >
+            <Ionicons name="print-outline" size={16} color={theme.colors.white} />
+            <Text style={styles.exportPdfBtnText}>Tải Phiếu Lương PDF</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            accessibilityLabel="Chia sẻ phiếu lương"
+            activeOpacity={0.7}
+            onPress={sharePayslip}
+            style={styles.shareBtn}
+          >
+            <Ionicons name="share-social-outline" size={18} color={theme.colors.primary} />
+          </TouchableOpacity>
+        </View>
       </View>
 
-      {/* Month Selector - GIỮ NGUYÊN */}
+      {/* Month Selector */}
       <MonthSelector month={month} onChange={selectMonth} />
 
       {/* HERO CARD - THỰC LĨNH */}
@@ -79,74 +117,138 @@ export default function PayrollResult() {
           1. LƯƠNG & CÁC KHOẢN PHỤ CẤP THEO HỢP ĐỒNG
          ================================================== */}
       <Card style={styles.sectionCard}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionHeading}>LƯƠNG & CÁC KHOẢN PHỤ CẤP THEO HỢP ĐỒNG</Text>
-        </View>
+        <TouchableOpacity
+          activeOpacity={0.7}
+          onPress={() => toggleSection('contract')}
+          style={styles.sectionHeaderClickable}
+        >
+          <View style={styles.sectionHeaderLeft}>
+            <Text style={styles.sectionHeading}>LƯƠNG & PHỤ CẤP HỢP ĐỒNG</Text>
+            <Text style={styles.sectionBadgeText}>{res.standardHours}h tiêu chuẩn</Text>
+          </View>
+          <Ionicons
+            name={openSections.contract ? 'chevron-down' : 'chevron-forward'}
+            size={18}
+            color={theme.colors.primary}
+          />
+        </TouchableOpacity>
 
-        <Row title="Lương cơ bản" amount={formatVND(res.basicSalary)} />
-        <Row title="PC thâm niên, công việc" amount={formatVND(res.seniorityAllowance)} />
-        <Row title="PC sinh hoạt" amount={formatVND(res.livingAllowance)} />
-        <Row title="PC chuyên cần" amount={formatVND(res.attendanceAllowance)} />
-        <Row title="PC khác" amount={formatVND(res.otherAllowance)} />
-        <Row title="Số giờ công tiêu chuẩn" hours={`${res.standardHours}h`} />
-        <Row title="Số giờ công thực tế" hours={`${res.actualHours}h`} isLast />
+        {openSections.contract && (
+          <View style={styles.accordionBody}>
+            <Row title="Lương cơ bản" amount={formatVND(res.basicSalary)} />
+            <Row title="PC thâm niên, công việc" amount={formatVND(res.seniorityAllowance)} />
+            <Row title="PC sinh hoạt" amount={formatVND(res.livingAllowance)} />
+            <Row title="PC chuyên cần" amount={formatVND(res.attendanceAllowance)} />
+            <Row title="PC khác" amount={formatVND(res.otherAllowance)} />
+            <Row title="Số giờ công tiêu chuẩn" hours={`${res.standardHours}h`} />
+            <Row title="Số giờ công thực tế" hours={`${res.actualHours}h`} isLast />
+          </View>
+        )}
       </Card>
 
       {/* ==================================================
           2. A2. LƯƠNG CHÍNH THỨC
          ================================================== */}
       <Card style={styles.sectionCard}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionHeading}>A2. LƯƠNG CHÍNH THỨC</Text>
-        </View>
+        <TouchableOpacity
+          activeOpacity={0.7}
+          onPress={() => toggleSection('a2')}
+          style={styles.sectionHeaderClickable}
+        >
+          <View style={styles.sectionHeaderLeft}>
+            <Text style={styles.sectionHeading}>A2. LƯƠNG CHÍNH THỨC</Text>
+            <Text style={styles.sectionSubtotalText}>{formatVND(res.totalA2)}</Text>
+          </View>
+          <Ionicons
+            name={openSections.a2 ? 'chevron-down' : 'chevron-forward'}
+            size={18}
+            color={theme.colors.primary}
+          />
+        </TouchableOpacity>
 
-        <Row title="Số giờ cơ bản 100%" hours={`${res.normalHours}h`} amount={formatVND(res.normalPay)} />
-        <Row title="Số giờ tăng ca ngày 150%" hours={`${res.ot150Hours}h`} amount={formatVND(res.ot150Pay)} />
-        <Row title="Số giờ phụ cấp ca đêm 30%" hours={`${res.nightAllowanceHours}h`} amount={formatVND(res.nightAllowancePay)} />
-        <Row title="Số giờ tăng ca đêm 200%" hours={`${res.ot200Hours}h`} amount={formatVND(res.ot200Pay)} />
-        <Row title="Số giờ tăng ca ngày thường 210%" hours={`${res.ot210Hours}h`} amount={formatVND(res.ot210Pay)} />
-        <Row title="Số giờ tăng ca ngày chủ nhật 200%" hours={`${res.weeklyOffHours}h`} amount={formatVND(res.weeklyOffPay)} />
-        <Row title="Số giờ tăng ca đêm chủ nhật 270%" hours={`${res.weeklyOffNightHours}h`} amount={formatVND(res.weeklyOffNightPay)} />
-        <Row title="Số giờ tăng ca ngày lễ 300%" hours={`${res.holidayHours}h`} amount={formatVND(res.holidayPay)} />
-        <Row title="Số giờ tăng ca đêm ngày lễ 390%" hours={`${res.holidayNightHours}h`} amount={formatVND(res.holidayNightPay)} />
-        <Row title="Số giờ hưởng nghỉ 70%" hours={`${res.leave70Hours}h`} amount={formatVND(res.leave70Pay)} />
-        <Row title="Số giờ nghỉ chế độ đặc biệt" hours={`${res.specialLeaveHours}h`} amount={formatVND(res.specialLeavePay)} />
+        {openSections.a2 && (
+          <View style={styles.accordionBody}>
+            <Row title="Số giờ cơ bản 100%" hours={`${res.normalHours}h`} amount={formatVND(res.normalPay)} />
+            <Row title="Số giờ tăng ca ngày 150%" hours={`${res.ot150Hours}h`} amount={formatVND(res.ot150Pay)} />
+            <Row title="Số giờ phụ cấp ca đêm 30%" hours={`${res.nightAllowanceHours}h`} amount={formatVND(res.nightAllowancePay)} />
+            <Row title="Số giờ tăng ca đêm 200%" hours={`${res.ot200Hours}h`} amount={formatVND(res.ot200Pay)} />
+            <Row title="Số giờ tăng ca ngày thường 210%" hours={`${res.ot210Hours}h`} amount={formatVND(res.ot210Pay)} />
+            <Row title="Số giờ tăng ca ngày chủ nhật 200%" hours={`${res.weeklyOffHours}h`} amount={formatVND(res.weeklyOffPay)} />
+            <Row title="Số giờ tăng ca đêm chủ nhật 270%" hours={`${res.weeklyOffNightHours}h`} amount={formatVND(res.weeklyOffNightPay)} />
+            <Row title="Số giờ tăng ca ngày lễ 300%" hours={`${res.holidayHours}h`} amount={formatVND(res.holidayPay)} />
+            <Row title="Số giờ tăng ca đêm ngày lễ 390%" hours={`${res.holidayNightHours}h`} amount={formatVND(res.holidayNightPay)} />
+            <Row title="Số giờ hưởng nghỉ 70%" hours={`${res.leave70Hours}h`} amount={formatVND(res.leave70Pay)} />
+            <Row title="Số giờ nghỉ chế độ đặc biệt" hours={`${res.specialLeaveHours}h`} amount={formatVND(res.specialLeavePay)} />
 
-        <SubtotalRow title="Tổng A2" amount={formatVND(res.totalA2)} />
+            <SubtotalRow title="Tổng A2" amount={formatVND(res.totalA2)} />
+          </View>
+        )}
       </Card>
 
       {/* ==================================================
           3. A1. CÁC KHOẢN PHỤ CẤP
          ================================================== */}
       <Card style={styles.sectionCard}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionHeading}>A1. CÁC KHOẢN PHỤ CẤP</Text>
-        </View>
+        <TouchableOpacity
+          activeOpacity={0.7}
+          onPress={() => toggleSection('a1')}
+          style={styles.sectionHeaderClickable}
+        >
+          <View style={styles.sectionHeaderLeft}>
+            <Text style={styles.sectionHeading}>A1. CÁC KHOẢN PHỤ CẤP</Text>
+            <Text style={styles.sectionSubtotalText}>{formatVND(res.totalA1)}</Text>
+          </View>
+          <Ionicons
+            name={openSections.a1 ? 'chevron-down' : 'chevron-forward'}
+            size={18}
+            color={theme.colors.primary}
+          />
+        </TouchableOpacity>
 
-        <Row title="Phụ cấp sinh hoạt" amount={formatVND(res.livingAllowancePay)} />
-        <Row title="Phụ cấp chuyên cần" amount={formatVND(res.attendanceBonus)} />
-        <Row title="Phụ cấp &quot; phụ nữ&quot;" amount={formatVND(res.womenAllowance)} />
-        <Row title="Hỗ trợ trẻ em" amount={formatVND(res.childSupport)} />
-        <Row title="Phụ cấp khác" amount={formatVND(res.otherAllowancePay)} />
+        {openSections.a1 && (
+          <View style={styles.accordionBody}>
+            <Row title="Phụ cấp sinh hoạt" amount={formatVND(res.livingAllowancePay)} />
+            <Row title="Phụ cấp chuyên cần" amount={formatVND(res.attendanceBonus)} />
+            <Row title="Phụ cấp &quot; phụ nữ&quot;" amount={formatVND(res.womenAllowance)} />
+            <Row title="Hỗ trợ trẻ em" amount={formatVND(res.childSupport)} />
+            <Row title="Phụ cấp khác" amount={formatVND(res.otherAllowancePay)} />
 
-        <SubtotalRow title="Tổng A1" amount={formatVND(res.totalA1)} />
+            <SubtotalRow title="Tổng A1" amount={formatVND(res.totalA1)} />
+          </View>
+        )}
       </Card>
 
       {/* ==================================================
           4. A4. CÁC KHOẢN CỘNG KHÁC
          ================================================== */}
       <Card style={styles.sectionCard}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionHeading}>A4. CÁC KHOẢN CỘNG KHÁC</Text>
-        </View>
+        <TouchableOpacity
+          activeOpacity={0.7}
+          onPress={() => toggleSection('a4')}
+          style={styles.sectionHeaderClickable}
+        >
+          <View style={styles.sectionHeaderLeft}>
+            <Text style={styles.sectionHeading}>A4. CÁC KHOẢN CỘNG KHÁC</Text>
+            <Text style={styles.sectionSubtotalText}>{formatVND(res.totalA4)}</Text>
+          </View>
+          <Ionicons
+            name={openSections.a4 ? 'chevron-down' : 'chevron-forward'}
+            size={18}
+            color={theme.colors.primary}
+          />
+        </TouchableOpacity>
 
-        <Row title="TT phép năm nghỉ việc/cuối năm" amount={formatVND(res.annualLeaveSettlement)} />
-        <Row title="Hỗ trợ tiền ăn" amount={formatVND(res.mealSupport)} />
-        <Row title="Thưởng/thưởng người giới thiệu" amount={formatVND(res.referralBonus)} />
-        <Row title="Bù lương/thưởng/lĩnh BH" amount={formatVND(res.salaryBonusAdjustment)} />
-        <Row title="Hoàn thuế TNCN năm 2020" amount={formatVND(res.pitRefund)} />
+        {openSections.a4 && (
+          <View style={styles.accordionBody}>
+            <Row title="TT phép năm nghỉ việc/cuối năm" amount={formatVND(res.annualLeaveSettlement)} />
+            <Row title="Hỗ trợ tiền ăn" amount={formatVND(res.mealSupport)} />
+            <Row title="Thưởng/thưởng người giới thiệu" amount={formatVND(res.referralBonus)} />
+            <Row title="Bù lương/thưởng/lĩnh BH" amount={formatVND(res.salaryBonusAdjustment)} />
+            <Row title="Hoàn thuế TNCN năm 2020" amount={formatVND(res.pitRefund)} />
 
-        <SubtotalRow title="Tổng A4" amount={formatVND(res.totalA4)} />
+            <SubtotalRow title="Tổng A4" amount={formatVND(res.totalA4)} />
+          </View>
+        )}
       </Card>
 
       {/* ==================================================
@@ -161,45 +263,101 @@ export default function PayrollResult() {
           5. B1. CÁC KHOẢN TRỪ
          ================================================== */}
       <Card style={styles.sectionCard}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionHeading}>B1. CÁC KHOẢN TRỪ</Text>
-        </View>
+        <TouchableOpacity
+          activeOpacity={0.7}
+          onPress={() => toggleSection('b1')}
+          style={styles.sectionHeaderClickable}
+        >
+          <View style={styles.sectionHeaderLeft}>
+            <Text style={styles.sectionHeading}>B1. CÁC KHOẢN TRỪ</Text>
+            <Text style={[styles.sectionSubtotalText, { color: theme.colors.danger }]}>
+              -{formatVND(res.totalB1)}
+            </Text>
+          </View>
+          <Ionicons
+            name={openSections.b1 ? 'chevron-down' : 'chevron-forward'}
+            size={18}
+            color={theme.colors.primary}
+          />
+        </TouchableOpacity>
 
-        <Row title="Đi muộn về sớm" amount={formatVND(res.latenessDeduction)} />
-
-        <SubtotalRow title="Tổng B1" amount={formatVND(res.totalB1)} isDeduction />
+        {openSections.b1 && (
+          <View style={styles.accordionBody}>
+            <Row title="Đi muộn về sớm" amount={formatVND(res.latenessDeduction)} />
+            <SubtotalRow title="Tổng B1" amount={formatVND(res.totalB1)} isDeduction />
+          </View>
+        )}
       </Card>
 
       {/* ==================================================
           6. B2. BẢO HIỂM
          ================================================== */}
       <Card style={styles.sectionCard}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionHeading}>B2. BẢO HIỂM</Text>
-        </View>
+        <TouchableOpacity
+          activeOpacity={0.7}
+          onPress={() => toggleSection('b2')}
+          style={styles.sectionHeaderClickable}
+        >
+          <View style={styles.sectionHeaderLeft}>
+            <Text style={styles.sectionHeading}>B2. BẢO HIỂM</Text>
+            <Text style={[styles.sectionSubtotalText, { color: theme.colors.danger }]}>
+              -{formatVND(res.totalB2)}
+            </Text>
+          </View>
+          <Ionicons
+            name={openSections.b2 ? 'chevron-down' : 'chevron-forward'}
+            size={18}
+            color={theme.colors.primary}
+          />
+        </TouchableOpacity>
 
-        <Row title={`Trừ bảo hiểm ${res.insuranceRate.toLocaleString('vi-VN')}%`} amount={formatVND(res.insuranceDeduction)} />
-        <Row title="Truy thu BHYT" amount={formatVND(res.healthInsuranceRecovery)} />
-        <Row title="Công đoàn" amount={formatVND(res.unionDeduction)} />
+        {openSections.b2 && (
+          <View style={styles.accordionBody}>
+            <Row
+              title={`Trừ bảo hiểm ${res.insuranceRate.toLocaleString('vi-VN')}%`}
+              amount={formatVND(res.insuranceDeduction)}
+            />
+            <Row title="Truy thu BHYT" amount={formatVND(res.healthInsuranceRecovery)} />
+            <Row title="Công đoàn" amount={formatVND(res.unionDeduction)} />
 
-        <SubtotalRow title="Tổng B2" amount={formatVND(res.totalB2)} isDeduction />
+            <SubtotalRow title="Tổng B2" amount={formatVND(res.totalB2)} isDeduction />
+          </View>
+        )}
       </Card>
 
       {/* ==================================================
           7. B4. CÁC KHOẢN TRỪ KHÁC
          ================================================== */}
       <Card style={styles.sectionCard}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionHeading}>B4. CÁC KHOẢN TRỪ KHÁC</Text>
-        </View>
+        <TouchableOpacity
+          activeOpacity={0.7}
+          onPress={() => toggleSection('b4')}
+          style={styles.sectionHeaderClickable}
+        >
+          <View style={styles.sectionHeaderLeft}>
+            <Text style={styles.sectionHeading}>B4. CÁC KHOẢN TRỪ KHÁC</Text>
+            <Text style={[styles.sectionSubtotalText, { color: theme.colors.danger }]}>
+              -{formatVND(res.totalB4)}
+            </Text>
+          </View>
+          <Ionicons
+            name={openSections.b4 ? 'chevron-down' : 'chevron-forward'}
+            size={18}
+            color={theme.colors.primary}
+          />
+        </TouchableOpacity>
 
-        <Row title="Vi phạm gây thiệt hại cho công ty" amount={formatVND(res.damageDeduction)} />
-        <Row title="Cơm ca" amount={formatVND(res.mealDeduction)} />
-        <Row title="Trừ tiền đồng phục" amount={formatVND(res.uniformDeduction)} />
-        <Row title="Trừ tháng trước/tiền nhận trước" amount={formatVND(res.previousMonthDeduction)} />
-        <Row title="Thu tiền quỹ phòng chống thiên tai" amount={formatVND(res.disasterFundDeduction)} />
+        {openSections.b4 && (
+          <View style={styles.accordionBody}>
+            <Row title="Vi phạm gây thiệt hại cho công ty" amount={formatVND(res.damageDeduction)} />
+            <Row title="Cơm ca" amount={formatVND(res.mealDeduction)} />
+            <Row title="Trừ tiền đồng phục" amount={formatVND(res.uniformDeduction)} />
+            <Row title="Trừ tháng trước/tiền nhận trước" amount={formatVND(res.previousMonthDeduction)} />
+            <Row title="Thu tiền quỹ phòng chống thiên tai" amount={formatVND(res.disasterFundDeduction)} />
 
-        <SubtotalRow title="Tổng B4" amount={formatVND(res.totalB4)} isDeduction />
+            <SubtotalRow title="Tổng B4" amount={formatVND(res.totalB4)} isDeduction />
+          </View>
+        )}
       </Card>
 
       {/* ==================================================
@@ -218,6 +376,16 @@ export default function PayrollResult() {
         <Text style={styles.finalNetFormula}>(Tổng A − Tổng giảm trừ)</Text>
         <Text style={styles.finalNetValue}>{formatVND(res.netPay)}</Text>
       </View>
+
+      {/* Modal Phiếu Lương PDF HoJeong */}
+      <PayslipModal
+        visible={isPayslipModalOpen}
+        onClose={() => setIsPayslipModalOpen(false)}
+        month={month}
+        payroll={res}
+        userName={user?.fullName || 'Cán bộ Nhân viên'}
+        userEmail={user?.email || 'nhanvien@hojeong.vn'}
+      />
     </ScrollView>
   );
 }
@@ -293,26 +461,33 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  titleActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  exportPdfBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: theme.colors.primary,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: theme.radius.md,
+  },
+  exportPdfBtnText: {
+    color: theme.colors.white,
+    fontWeight: '800',
+    fontSize: 11,
+    letterSpacing: 0.3,
+  },
 
   // HERO CARD
   heroCard: {
-    backgroundColor: '#0F172A',
+    backgroundColor: theme.colors.brand[900],
     borderRadius: theme.radius.xl,
-    padding: 20,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#0F172A',
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.25,
-        shadowRadius: 14,
-      },
-      android: {
-        elevation: 8,
-      },
-      web: {
-        boxShadow: '0 8px 24px rgba(15, 23, 42, 0.25)',
-      },
-    }),
+    padding: 22,
+    ...theme.elevations.floating,
   },
   heroTopRow: {
     flexDirection: 'row',
@@ -336,13 +511,13 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   heroMonthLabel: {
-    color: theme.colors.slate400,
+    color: theme.colors.slate300,
     fontSize: 11,
     fontWeight: '700',
     letterSpacing: 0.5,
   },
   heroLabel: {
-    color: theme.colors.slate400,
+    color: theme.colors.slate300,
     fontSize: 11,
     fontWeight: '800',
     letterSpacing: 0.6,
@@ -383,22 +558,44 @@ const styles = StyleSheet.create({
     marginHorizontal: 12,
   },
 
-  // SECTION CARDS
+  // SECTION CARDS & ACCORDION
   sectionCard: {
     padding: 16,
     borderRadius: theme.radius.xl,
   },
-  sectionHeader: {
-    paddingBottom: 10,
-    borderBottomWidth: 1,
-    borderColor: theme.colors.slate200,
-    marginBottom: 4,
+  sectionHeaderClickable: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 4,
+  },
+  sectionHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
   },
   sectionHeading: {
     fontSize: 12,
     fontWeight: '900',
     color: theme.colors.primaryDark,
     letterSpacing: 0.6,
+  },
+  sectionBadgeText: {
+    fontSize: 11,
+    color: theme.colors.slate500,
+    fontWeight: '600',
+  },
+  sectionSubtotalText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: theme.colors.primaryDark,
+  },
+  accordionBody: {
+    marginTop: 10,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderColor: theme.colors.slate100,
   },
   itemRow: {
     flexDirection: 'row',
@@ -509,7 +706,7 @@ const styles = StyleSheet.create({
     padding: 20,
     alignItems: 'center',
     gap: 4,
-    ...theme.shadows.float,
+    ...theme.elevations.card,
   },
   finalNetLabel: {
     fontSize: 14,

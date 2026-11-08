@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
   Switch,
   ActivityIndicator,
+  useWindowDimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSalaryStore } from '../store/salaryStore';
@@ -38,6 +39,9 @@ export default function SalaryConfig() {
   const [local, setLocal] = useState(config);
   const [localGeo, setLocalGeo] = useState(geoConfig);
   const [fetchingGps, setFetchingGps] = useState(false);
+
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= theme.responsive.breakpoints.mobile;
 
   useEffect(() => {
     void loadConfig();
@@ -114,6 +118,8 @@ export default function SalaryConfig() {
   const ot150Rate = Math.round(premiumRate * 1.5);
   const ot200Rate = Math.round(premiumRate * 2.0);
 
+  const colWidth = isDesktop ? ('48.8%' as const) : ('100%' as const);
+
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       {/* Title */}
@@ -127,7 +133,7 @@ export default function SalaryConfig() {
         </View>
       </View>
 
-      {/* Hourly Rate Insights Card */}
+      {/* Hourly Rate Insights Card (FinTech Glance) */}
       <Card style={styles.insightsCard}>
         <View style={styles.insightsHeader}>
           <Ionicons name="calculator-outline" size={18} color={theme.colors.primary} />
@@ -151,298 +157,301 @@ export default function SalaryConfig() {
         </View>
       </Card>
 
-      {/* GROUP 1: LƯƠNG CƠ BẢN & THÂM NIÊN */}
-      <Card style={styles.sectionCard}>
-        <View style={styles.cardHeader}>
-          <View style={styles.headerLeft}>
-            <View style={[styles.headerIconBox, { backgroundColor: theme.colors.primarySoft }]}>
-              <Ionicons name="cash-outline" size={18} color={theme.colors.primary} />
-            </View>
-            <View>
-              <Text style={styles.sectionTitle}>LƯƠNG CƠ BẢN & THÂM NIÊN</Text>
-              <Text style={styles.sectionSub}>Mức lương đóng bảo hiểm & tính đơn giá giờ</Text>
-            </View>
-          </View>
-        </View>
-
-        <View style={styles.fieldGroup}>
-          <Text style={styles.fieldLabel}>LƯƠNG CƠ BẢN (VND)</Text>
-          <View style={styles.inputContainer}>
-            <TextInput
-              style={styles.input}
-              value={String(local.basicSalary || '')}
-              onChangeText={(t) => setLocal({ ...local, basicSalary: sanitizeCurrency(t, 0) })}
-              keyboardType="numeric"
-              placeholder="Nhập lương cơ bản..."
-            />
-            <Text style={styles.inputUnit}>đ</Text>
-          </View>
-          <Text style={styles.previewText}>Bằng số: {formatVND(local.basicSalary || 0)}</Text>
-        </View>
-
-        <View style={[styles.fieldGroup, { marginTop: 12 }]}>
-          <Text style={styles.fieldLabel}>PHỤ CẤP THÂM NIÊN (VND)</Text>
-          <View style={styles.inputContainer}>
-            <TextInput
-              style={styles.input}
-              value={String(local.seniorityAllowance || '')}
-              onChangeText={(t) => setLocal({ ...local, seniorityAllowance: sanitizeCurrency(t, 0) })}
-              keyboardType="numeric"
-              placeholder="Nhập phụ cấp thâm niên..."
-            />
-            <Text style={styles.inputUnit}>đ</Text>
-          </View>
-          <Text style={styles.previewText}>Bằng số: {formatVND(local.seniorityAllowance || 0)}</Text>
-        </View>
-      </Card>
-
-      {/* GROUP 2: CÁC KHOẢN PHỤ CẤP */}
-      <Card style={styles.sectionCard}>
-        <View style={styles.cardHeader}>
-          <View style={styles.headerLeft}>
-            <View style={[styles.headerIconBox, { backgroundColor: theme.colors.warningSoft }]}>
-              <Ionicons name="gift-outline" size={18} color={theme.colors.warning} />
-            </View>
-            <View>
-              <Text style={styles.sectionTitle}>CÁC KHOẢN PHỤ CẤP HÀNG THÁNG</Text>
-              <Text style={styles.sectionSub}>Trợ cấp phúc lợi & chuyên cần</Text>
+      {/* Two-Column Responsive Layout Container on Desktop */}
+      <View style={styles.formGrid}>
+        {/* GROUP 1: LƯƠNG CƠ BẢN & THÂM NIÊN */}
+        <Card style={[styles.sectionCard, { width: colWidth }]}>
+          <View style={styles.cardHeader}>
+            <View style={styles.headerLeft}>
+              <View style={[styles.headerIconBox, { backgroundColor: theme.colors.primarySoft }]}>
+                <Ionicons name="cash-outline" size={18} color={theme.colors.primary} />
+              </View>
+              <View>
+                <Text style={styles.sectionTitle}>LƯƠNG CƠ BẢN & THÂM NIÊN</Text>
+                <Text style={styles.sectionSub}>Mức lương đóng bảo hiểm & tính đơn giá giờ</Text>
+              </View>
             </View>
           </View>
-        </View>
 
-        <View style={styles.fieldGroup}>
-          <Text style={styles.fieldLabel}>PHỤ CẤP CHUYÊN CẦN (VND)</Text>
-          <View style={styles.inputContainer}>
-            <TextInput
-              style={styles.input}
-              value={String(local.attendanceAllowance || '')}
-              onChangeText={(t) => setLocal({ ...local, attendanceAllowance: sanitizeCurrency(t, 0) })}
-              keyboardType="numeric"
-            />
-            <Text style={styles.inputUnit}>đ</Text>
-          </View>
-          <Text style={styles.previewText}>Bằng số: {formatVND(local.attendanceAllowance || 0)}</Text>
-        </View>
-
-        <View style={[styles.fieldGroup, { marginTop: 12 }]}>
-          <Text style={styles.fieldLabel}>PHỤ CẤP SINH HOẠT (VND)</Text>
-          <View style={styles.inputContainer}>
-            <TextInput
-              style={styles.input}
-              value={String(local.livingAllowance || '')}
-              onChangeText={(t) => setLocal({ ...local, livingAllowance: sanitizeCurrency(t, 0) })}
-              keyboardType="numeric"
-            />
-            <Text style={styles.inputUnit}>đ</Text>
-          </View>
-          <Text style={styles.previewText}>Bằng số: {formatVND(local.livingAllowance || 0)}</Text>
-        </View>
-
-        <View style={[styles.fieldGroup, { marginTop: 12 }]}>
-          <Text style={styles.fieldLabel}>PHỤ CẤP KHÁC (VND)</Text>
-          <View style={styles.inputContainer}>
-            <TextInput
-              style={styles.input}
-              value={String(local.otherAllowance || '')}
-              onChangeText={(t) => setLocal({ ...local, otherAllowance: sanitizeCurrency(t, 0) })}
-              keyboardType="numeric"
-            />
-            <Text style={styles.inputUnit}>đ</Text>
-          </View>
-          <Text style={styles.previewText}>Bằng số: {formatVND(local.otherAllowance || 0)}</Text>
-        </View>
-      </Card>
-
-      {/* GROUP 3: CHUẨN CÔNG & BẢO HIỂM */}
-      <Card style={styles.sectionCard}>
-        <View style={styles.cardHeader}>
-          <View style={styles.headerLeft}>
-            <View style={[styles.headerIconBox, { backgroundColor: theme.colors.purpleSoft }]}>
-              <Ionicons name="shield-outline" size={18} color={theme.colors.purple} />
+          <View style={styles.fieldGroup}>
+            <Text style={styles.fieldLabel}>LƯƠNG CƠ BẢN (VND)</Text>
+            <View style={styles.inputContainer}>
+              <TextInput
+                style={styles.input}
+                value={String(local.basicSalary || '')}
+                onChangeText={(t) => setLocal({ ...local, basicSalary: sanitizeCurrency(t, 0) })}
+                keyboardType="numeric"
+                placeholder="Nhập lương cơ bản..."
+              />
+              <Text style={styles.inputUnit}>đ</Text>
             </View>
-            <View>
-              <Text style={styles.sectionTitle}>CHUẨN CÔNG & BẢO HIỂM</Text>
-              <Text style={styles.sectionSub}>Quy chuẩn thời gian & tỷ lệ khấu trừ</Text>
+            <Text style={styles.previewText}>Bằng số: {formatVND(local.basicSalary || 0)}</Text>
+          </View>
+
+          <View style={[styles.fieldGroup, { marginTop: 12 }]}>
+            <Text style={styles.fieldLabel}>PHỤ CẤP THÂM NIÊN (VND)</Text>
+            <View style={styles.inputContainer}>
+              <TextInput
+                style={styles.input}
+                value={String(local.seniorityAllowance || '')}
+                onChangeText={(t) => setLocal({ ...local, seniorityAllowance: sanitizeCurrency(t, 0) })}
+                keyboardType="numeric"
+                placeholder="Nhập phụ cấp thâm niên..."
+              />
+              <Text style={styles.inputUnit}>đ</Text>
+            </View>
+            <Text style={styles.previewText}>Bằng số: {formatVND(local.seniorityAllowance || 0)}</Text>
+          </View>
+        </Card>
+
+        {/* GROUP 2: CÁC KHOẢN PHỤ CẤP */}
+        <Card style={[styles.sectionCard, { width: colWidth }]}>
+          <View style={styles.cardHeader}>
+            <View style={styles.headerLeft}>
+              <View style={[styles.headerIconBox, { backgroundColor: theme.colors.warningSoft }]}>
+                <Ionicons name="gift-outline" size={18} color={theme.colors.warning} />
+              </View>
+              <View>
+                <Text style={styles.sectionTitle}>CÁC KHOẢN PHỤ CẤP HÀNG THÁNG</Text>
+                <Text style={styles.sectionSub}>Trợ cấp phúc lợi & chuyên cần</Text>
+              </View>
             </View>
           </View>
-        </View>
 
-        <View style={styles.fieldGroup}>
-          <Text style={styles.fieldLabel}>SỐ GIỜ CHUẨN TRONG THÁNG</Text>
-          <View style={styles.inputContainer}>
-            <TextInput
-              style={styles.input}
-              value={String(local.standardHours || '')}
-              onChangeText={(t) => setLocal({ ...local, standardHours: sanitizeStandardHours(t, 208) })}
-              keyboardType="numeric"
-            />
-            <Text style={styles.inputUnit}>giờ</Text>
-          </View>
-          <Text style={styles.previewText}>Tiêu chuẩn: 208 giờ (tương đương 26 ngày công × 8 giờ)</Text>
-        </View>
-
-        <View style={[styles.fieldGroup, { marginTop: 12 }]}>
-          <Text style={styles.fieldLabel}>TỶ LỆ ĐÓNG BẢO HIỂM XÃ HỘI (%)</Text>
-          <View style={styles.inputContainer}>
-            <TextInput
-              style={styles.input}
-              value={String(local.insuranceRate || '')}
-              onChangeText={(t) => setLocal({ ...local, insuranceRate: sanitizePercentage(t, 10.5) })}
-              keyboardType="decimal-pad"
-            />
-            <Text style={styles.inputUnit}>%</Text>
-          </View>
-          <Text style={styles.previewText}>
-            Quy định người lao động: 8% BHXH + 1.5% BHYT + 1% BHTN = 10.5%
-          </Text>
-        </View>
-      </Card>
-
-      {/* GROUP 4: VỊ TRÍ CÔNG TY & GPS GEOFENCING */}
-      <Card style={styles.sectionCard}>
-        <View style={styles.cardHeader}>
-          <View style={styles.headerLeft}>
-            <View style={[styles.headerIconBox, { backgroundColor: theme.colors.successSoft }]}>
-              <Ionicons name="location" size={18} color={theme.colors.successDark} />
+          <View style={styles.fieldGroup}>
+            <Text style={styles.fieldLabel}>PHỤ CẤP CHUYÊN CẦN (VND)</Text>
+            <View style={styles.inputContainer}>
+              <TextInput
+                style={styles.input}
+                value={String(local.attendanceAllowance || '')}
+                onChangeText={(t) => setLocal({ ...local, attendanceAllowance: sanitizeCurrency(t, 0) })}
+                keyboardType="numeric"
+              />
+              <Text style={styles.inputUnit}>đ</Text>
             </View>
-            <View>
-              <Text style={styles.sectionTitle}>VỊ TRÍ CÔNG TY & GPS GEOFENCING</Text>
-              <Text style={styles.sectionSub}>Xác định ranh giới nhận diện đến/rời công ty</Text>
+            <Text style={styles.previewText}>Bằng số: {formatVND(local.attendanceAllowance || 0)}</Text>
+          </View>
+
+          <View style={[styles.fieldGroup, { marginTop: 12 }]}>
+            <Text style={styles.fieldLabel}>PHỤ CẤP SINH HOẠT (VND)</Text>
+            <View style={styles.inputContainer}>
+              <TextInput
+                style={styles.input}
+                value={String(local.livingAllowance || '')}
+                onChangeText={(t) => setLocal({ ...local, livingAllowance: sanitizeCurrency(t, 0) })}
+                keyboardType="numeric"
+              />
+              <Text style={styles.inputUnit}>đ</Text>
+            </View>
+            <Text style={styles.previewText}>Bằng số: {formatVND(local.livingAllowance || 0)}</Text>
+          </View>
+
+          <View style={[styles.fieldGroup, { marginTop: 12 }]}>
+            <Text style={styles.fieldLabel}>PHỤ CẤP KHÁC (VND)</Text>
+            <View style={styles.inputContainer}>
+              <TextInput
+                style={styles.input}
+                value={String(local.otherAllowance || '')}
+                onChangeText={(t) => setLocal({ ...local, otherAllowance: sanitizeCurrency(t, 0) })}
+                keyboardType="numeric"
+              />
+              <Text style={styles.inputUnit}>đ</Text>
+            </View>
+            <Text style={styles.previewText}>Bằng số: {formatVND(local.otherAllowance || 0)}</Text>
+          </View>
+        </Card>
+
+        {/* GROUP 3: CHUẨN CÔNG & BẢO HIỂM */}
+        <Card style={[styles.sectionCard, { width: colWidth }]}>
+          <View style={styles.cardHeader}>
+            <View style={styles.headerLeft}>
+              <View style={[styles.headerIconBox, { backgroundColor: theme.colors.purpleSoft }]}>
+                <Ionicons name="shield-outline" size={18} color={theme.colors.purple} />
+              </View>
+              <View>
+                <Text style={styles.sectionTitle}>CHUẨN CÔNG & BẢO HIỂM</Text>
+                <Text style={styles.sectionSub}>Quy chuẩn thời gian & tỷ lệ khấu trừ</Text>
+              </View>
             </View>
           </View>
-        </View>
 
-        {/* Toggle Switch */}
-        <View style={styles.toggleRow}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.toggleTitle}>Kích hoạt GPS Geofencing</Text>
-            <Text style={styles.toggleSub}>
-              Nhận diện tự động và hiển thị thông báo để bạn bấm xác nhận
+          <View style={styles.fieldGroup}>
+            <Text style={styles.fieldLabel}>SỐ GIỜ CHUẨN TRONG THÁNG</Text>
+            <View style={styles.inputContainer}>
+              <TextInput
+                style={styles.input}
+                value={String(local.standardHours || '')}
+                onChangeText={(t) => setLocal({ ...local, standardHours: sanitizeStandardHours(t, 208) })}
+                keyboardType="numeric"
+              />
+              <Text style={styles.inputUnit}>giờ</Text>
+            </View>
+            <Text style={styles.previewText}>Tiêu chuẩn: 208 giờ (tương đương 26 ngày công × 8 giờ)</Text>
+          </View>
+
+          <View style={[styles.fieldGroup, { marginTop: 12 }]}>
+            <Text style={styles.fieldLabel}>TỶ LỆ ĐÓNG BẢO HIỂM XÃ HỘI (%)</Text>
+            <View style={styles.inputContainer}>
+              <TextInput
+                style={styles.input}
+                value={String(local.insuranceRate || '')}
+                onChangeText={(t) => setLocal({ ...local, insuranceRate: sanitizePercentage(t, 10.5) })}
+                keyboardType="decimal-pad"
+              />
+              <Text style={styles.inputUnit}>%</Text>
+            </View>
+            <Text style={styles.previewText}>
+              Quy định người lao động: 8% BHXH + 1.5% BHYT + 1% BHTN = 10.5%
             </Text>
           </View>
-          <Switch
-            value={localGeo.enabled}
-            onValueChange={(val) => setLocalGeo({ ...localGeo, enabled: val })}
-            trackColor={{ false: theme.colors.slate300, true: theme.colors.successSoft }}
-            thumbColor={localGeo.enabled ? theme.colors.successDark : theme.colors.slate400}
-          />
-        </View>
+        </Card>
 
-        {/* Lat & Lon Inputs */}
-        <View style={styles.fieldGroup}>
-          <Text style={styles.fieldLabel}>TỌA ĐỘ VĨ ĐỘ (LATITUDE)</Text>
-          <View style={styles.inputContainer}>
-            <TextInput
-              style={styles.input}
-              value={String(localGeo.latitude || '')}
-              onChangeText={(t) => {
-                const num = parseFloat(t);
-                if (!Number.isNaN(num)) setLocalGeo({ ...localGeo, latitude: num });
-              }}
-              keyboardType="decimal-pad"
+        {/* GROUP 4: VỊ TRÍ CÔNG TY & GPS GEOFENCING */}
+        <Card style={[styles.sectionCard, { width: colWidth }]}>
+          <View style={styles.cardHeader}>
+            <View style={styles.headerLeft}>
+              <View style={[styles.headerIconBox, { backgroundColor: theme.colors.successSoft }]}>
+                <Ionicons name="location" size={18} color={theme.colors.successDark} />
+              </View>
+              <View>
+                <Text style={styles.sectionTitle}>VỊ TRÍ CÔNG TY & GPS GEOFENCING</Text>
+                <Text style={styles.sectionSub}>Xác định ranh giới nhận diện đến/rời công ty</Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Toggle Switch */}
+          <View style={styles.toggleRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.toggleTitle}>Kích hoạt GPS Geofencing</Text>
+              <Text style={styles.toggleSub}>
+                Nhận diện tự động và hiển thị thông báo để bạn bấm xác nhận
+              </Text>
+            </View>
+            <Switch
+              value={localGeo.enabled}
+              onValueChange={(val) => setLocalGeo({ ...localGeo, enabled: val })}
+              trackColor={{ false: theme.colors.slate300, true: theme.colors.successSoft }}
+              thumbColor={localGeo.enabled ? theme.colors.successDark : theme.colors.slate400}
             />
           </View>
-        </View>
 
-        <View style={[styles.fieldGroup, { marginTop: 10 }]}>
-          <Text style={styles.fieldLabel}>TỌA ĐỘ KINH ĐỘ (LONGITUDE)</Text>
-          <View style={styles.inputContainer}>
-            <TextInput
-              style={styles.input}
-              value={String(localGeo.longitude || '')}
-              onChangeText={(t) => {
-                const num = parseFloat(t);
-                if (!Number.isNaN(num)) setLocalGeo({ ...localGeo, longitude: num });
-              }}
-              keyboardType="decimal-pad"
-            />
-          </View>
-        </View>
-
-        {/* Get Current Location Button */}
-        <TouchableOpacity
-          style={styles.gpsGetBtn}
-          activeOpacity={0.7}
-          onPress={handleGetCurrentLocation}
-          disabled={fetchingGps}
-        >
-          {fetchingGps ? (
-            <ActivityIndicator size="small" color={theme.colors.primary} />
-          ) : (
-            <Ionicons name="navigate-outline" size={18} color={theme.colors.primary} />
-          )}
-          <Text style={styles.gpsGetBtnText}>
-            {fetchingGps ? 'Đang lấy vị trí hiện tại...' : 'Lấy vị trí hiện tại của thiết bị'}
-          </Text>
-        </TouchableOpacity>
-
-        {/* Radius Selector */}
-        <View style={[styles.fieldGroup, { marginTop: 14 }]}>
-          <Text style={styles.fieldLabel}>BÁN KÍNH NHẬN DIỆN (100m – 500m)</Text>
-          <View style={styles.radiusChipsRow}>
-            {[100, 150, 200, 300, 500].map((r) => {
-              const selected = localGeo.radius === r;
-              return (
-                <TouchableOpacity
-                  key={r}
-                  style={[styles.radiusChip, selected && styles.radiusChipSelected]}
-                  activeOpacity={0.7}
-                  onPress={() => setLocalGeo({ ...localGeo, radius: r })}
-                >
-                  <Text style={[styles.radiusChipText, selected && styles.radiusChipTextSelected]}>
-                    {r}m
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-          <Text style={styles.previewText}>
-            Bán kính mặc định 150m. Chỉ tạo thông báo khi bạn vào trong hoặc rời khỏi phạm vi này.
-          </Text>
-        </View>
-
-        {/* Live GPS Telemetry Box */}
-        <View style={styles.telemetryBox}>
-          <View style={styles.telemetryHeader}>
-            <Ionicons name="radio-outline" size={16} color={theme.colors.primary} />
-            <Text style={styles.telemetryTitle}>TRẠNG THÁI GPS THỰC TẾ</Text>
+          {/* Lat & Lon Inputs */}
+          <View style={styles.fieldGroup}>
+            <Text style={styles.fieldLabel}>TỌA ĐỘ VĨ ĐỘ (LATITUDE)</Text>
+            <View style={styles.inputContainer}>
+              <TextInput
+                style={styles.input}
+                value={String(localGeo.latitude || '')}
+                onChangeText={(t) => {
+                  const num = parseFloat(t);
+                  if (!Number.isNaN(num)) setLocalGeo({ ...localGeo, latitude: num });
+                }}
+                keyboardType="decimal-pad"
+              />
+            </View>
           </View>
 
-          <View style={styles.telemetryRow}>
-            <Text style={styles.telemetryLabel}>Khoảng cách tới công ty:</Text>
-            <Text style={styles.telemetryValue}>
-              {geoStatus.currentDistance !== null ? `${geoStatus.currentDistance} mét` : 'Chưa đo'}
+          <View style={[styles.fieldGroup, { marginTop: 10 }]}>
+            <Text style={styles.fieldLabel}>TỌA ĐỘ KINH ĐỘ (LONGITUDE)</Text>
+            <View style={styles.inputContainer}>
+              <TextInput
+                style={styles.input}
+                value={String(localGeo.longitude || '')}
+                onChangeText={(t) => {
+                  const num = parseFloat(t);
+                  if (!Number.isNaN(num)) setLocalGeo({ ...localGeo, longitude: num });
+                }}
+                keyboardType="decimal-pad"
+              />
+            </View>
+          </View>
+
+          {/* Get Current Location Button */}
+          <TouchableOpacity
+            style={styles.gpsGetBtn}
+            activeOpacity={0.7}
+            onPress={handleGetCurrentLocation}
+            disabled={fetchingGps}
+          >
+            {fetchingGps ? (
+              <ActivityIndicator size="small" color={theme.colors.primary} />
+            ) : (
+              <Ionicons name="navigate-outline" size={18} color={theme.colors.primary} />
+            )}
+            <Text style={styles.gpsGetBtnText}>
+              {fetchingGps ? 'Đang lấy vị trí hiện tại...' : 'Lấy vị trí hiện tại của thiết bị'}
+            </Text>
+          </TouchableOpacity>
+
+          {/* Radius Selector */}
+          <View style={[styles.fieldGroup, { marginTop: 14 }]}>
+            <Text style={styles.fieldLabel}>BÁN KÍNH NHẬN DIỆN (100m – 500m)</Text>
+            <View style={styles.radiusChipsRow}>
+              {[100, 150, 200, 300, 500].map((r) => {
+                const selected = localGeo.radius === r;
+                return (
+                  <TouchableOpacity
+                    key={r}
+                    style={[styles.radiusChip, selected && styles.radiusChipSelected]}
+                    activeOpacity={0.7}
+                    onPress={() => setLocalGeo({ ...localGeo, radius: r })}
+                  >
+                    <Text style={[styles.radiusChipText, selected && styles.radiusChipTextSelected]}>
+                      {r}m
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+            <Text style={styles.previewText}>
+              Bán kính mặc định 150m. Chỉ tạo thông báo khi bạn vào trong hoặc rời khỏi phạm vi này.
             </Text>
           </View>
 
-          <View style={styles.telemetryRow}>
-            <Text style={styles.telemetryLabel}>Vị trí so với vùng chấm công:</Text>
-            <Text
-              style={[
-                styles.telemetryValue,
-                { color: geoStatus.isInside ? theme.colors.successDark : theme.colors.slate600 },
-              ]}
-            >
-              {geoStatus.currentDistance === null
-                ? 'Chưa xác định'
-                : geoStatus.isInside
-                ? 'Đang ở trong khu vực công ty'
-                : 'Ở ngoài khu vực công ty'}
-            </Text>
-          </View>
+          {/* Live GPS Telemetry Box */}
+          <View style={styles.telemetryBox}>
+            <View style={styles.telemetryHeader}>
+              <Ionicons name="radio-outline" size={16} color={theme.colors.primary} />
+              <Text style={styles.telemetryTitle}>TRẠNG THÁI GPS THỰC TẾ</Text>
+            </View>
 
-          <View style={styles.telemetryRow}>
-            <Text style={styles.telemetryLabel}>Quyền vị trí:</Text>
-            <Text style={styles.telemetryValue}>
-              {geoStatus.locationPermission === 'granted'
-                ? 'Đã cấp'
-                : geoStatus.locationPermission === 'denied'
-                ? 'Bị từ chối'
-                : 'Chưa cấp'}
-            </Text>
+            <View style={styles.telemetryRow}>
+              <Text style={styles.telemetryLabel}>Khoảng cách tới công ty:</Text>
+              <Text style={styles.telemetryValue}>
+                {geoStatus.currentDistance !== null ? `${geoStatus.currentDistance} mét` : 'Chưa đo'}
+              </Text>
+            </View>
+
+            <View style={styles.telemetryRow}>
+              <Text style={styles.telemetryLabel}>Vị trí so với vùng chấm công:</Text>
+              <Text
+                style={[
+                  styles.telemetryValue,
+                  { color: geoStatus.isInside ? theme.colors.successDark : theme.colors.slate600 },
+                ]}
+              >
+                {geoStatus.currentDistance === null
+                  ? 'Chưa xác định'
+                  : geoStatus.isInside
+                  ? 'Đang ở trong khu vực công ty'
+                  : 'Ở ngoài khu vực công ty'}
+              </Text>
+            </View>
+
+            <View style={styles.telemetryRow}>
+              <Text style={styles.telemetryLabel}>Quyền vị trí:</Text>
+              <Text style={styles.telemetryValue}>
+                {geoStatus.locationPermission === 'granted'
+                  ? 'Đã cấp'
+                  : geoStatus.locationPermission === 'denied'
+                  ? 'Bị từ chối'
+                  : 'Chưa cấp'}
+              </Text>
+            </View>
           </View>
-        </View>
-      </Card>
+        </Card>
+      </View>
 
       {/* Actions */}
       <View style={styles.actionGroup}>
@@ -543,6 +552,13 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: theme.colors.slate800,
     marginTop: 3,
+  },
+
+  // Form Grid
+  formGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 14,
   },
 
   // Section Cards
@@ -719,4 +735,3 @@ const styles = StyleSheet.create({
     color: theme.colors.slate800,
   },
 });
-

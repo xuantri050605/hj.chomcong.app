@@ -104,12 +104,18 @@ function normalizeHtmlContent(html, subpath = EXPECTED_SUBPATH) {
     result = result.replace(new RegExp(doublePrefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), cleanSubpath);
   }
 
-  // 5. Ensure UTF-8 title
-  if (result.includes('<title>Webpack App</title>') || result.includes('<title>chấm công.app</title>')) {
-    result = result.replace(/<title>.*?<\/title>/, '<title>Chấm Công & Bảng Lương</title>');
+  // 5. Ensure UTF-8 corporate title
+  if (result.includes('<title>Webpack App</title>') || result.includes('<title>chấm công.app</title>') || result.includes('<title>Chấm Công & Bảng Lương</title>')) {
+    result = result.replace(/<title>.*?<\/title>/, '<title>HOJEONG – Hệ thống chấm công và tính lương</title>');
   }
 
-  // 6. Ensure favicon and apple-touch-icon links
+  // 6. Ensure Google Fonts (Plus Jakarta Sans corporate typography) without breaking vector icon fonts
+  if (!result.includes('fonts.googleapis.com')) {
+    const fontTags = `<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,800;1,900&display=swap" rel="stylesheet"><style>html, body, #root, input, textarea, select, button { font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; } [style*="font-family: Ionicons"], [style*="font-family: ionicons"] { font-family: Ionicons !important; }</style>`;
+    result = result.replace('</head>', `${fontTags}</head>`);
+  }
+
+  // 7. Ensure favicon and apple-touch-icon links
   if (!result.includes('rel="icon"') && !result.includes('rel="shortcut icon"')) {
     result = result.replace('</head>', `<link rel="icon" type="image/png" href="${cleanSubpath}/favicon.png"/><link rel="apple-touch-icon" href="${cleanSubpath}/icon-192.png"/></head>`);
   }
