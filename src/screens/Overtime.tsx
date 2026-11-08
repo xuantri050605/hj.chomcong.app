@@ -63,7 +63,7 @@ export default function OvertimeScreen() {
 
   const totalOtHours = +(payroll.ot150Hours + payroll.ot200Hours + payroll.ot210Hours).toFixed(2);
 
-  const kpiWidth = isDesktop ? ('23.8%' as const) : ('48.2%' as const);
+  const kpiWidth = isDesktop ? ('23.8%' as const) : width >= 380 ? ('48.2%' as const) : ('100%' as const);
 
   return (
     <View style={styles.screen}>
@@ -223,8 +223,8 @@ export default function OvertimeScreen() {
                   <Text style={[styles.th, { width: 85, textAlign: 'center' }]}>OT 150%</Text>
                   <Text style={[styles.th, { width: 85, textAlign: 'center' }]}>OT 200%</Text>
                   <Text style={[styles.th, { width: 85, textAlign: 'center' }]}>OT 210%</Text>
-                  <Text style={[styles.th, { width: 95, textAlign: 'right' }]}>TỔNG OT</Text>
-                  <Text style={[styles.th, { width: 155, paddingLeft: 16 }]}>LOẠI NGÀY / GHI CHÚ</Text>
+                  <Text style={[styles.th, { width: 95, textAlign: 'right', paddingRight: 14 }]}>TỔNG OT</Text>
+                  <Text style={[styles.th, { width: 175, paddingLeft: 18 }]}>LOẠI NGÀY / GHI CHÚ</Text>
                 </View>
 
                 {/* Rows */}
@@ -264,10 +264,10 @@ export default function OvertimeScreen() {
                         <Text style={styles.dashText}>—</Text>
                       )}
                     </View>
-                    <Text style={[styles.td, styles.totalOtCell, { width: 95, textAlign: 'right' }]}>
+                    <Text style={[styles.td, styles.totalOtCell, { width: 95, textAlign: 'right', paddingRight: 14 }]}>
                       {r.totalDayOt}h
                     </Text>
-                    <View style={{ width: 155, paddingLeft: 16 }}>
+                    <View style={{ width: 175, paddingLeft: 18 }}>
                       <Text style={styles.noteText} numberOfLines={1}>
                         {r.dayType === 'WEEKLY_OFF'
                           ? 'Nghỉ tuần'

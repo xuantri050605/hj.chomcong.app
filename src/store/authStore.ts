@@ -134,10 +134,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       });
 
       if (error) {
-        const msg =
-          error.message === 'Invalid login credentials'
-            ? 'Email hoặc mật khẩu không chính xác.'
-            : error.message;
+        let msg = error.message;
+        if (error.message === 'Invalid login credentials') {
+          msg = 'Email hoặc mật khẩu không chính xác.';
+        } else if (
+          error.message === 'Email not confirmed' ||
+          (error as any).error_code === 'email_not_confirmed'
+        ) {
+          msg =
+            'Tài khoản chưa được kích hoạt do cài đặt Supabase đang bật "Confirm email". Vui lòng kiểm tra thư mục Spam hoặc tắt "Confirm email" trong Supabase Auth Settings.';
+        }
         set({ error: msg, isLoading: false, user: null, session: null, profile: null });
         return false;
       }
@@ -203,6 +209,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
 
       if (data.user) {
+        if (!data.session) {
+          set({
+            isLoading: false,
+            error:
+              'Đăng ký thành công! Dự án Supabase đang bật bắt buộc xác thực email ("Confirm email"). Bạn hãy vào Supabase Dashboard > Authentication > Providers > Email và TẮT mục "Confirm email" để có thể đăng nhập ngay mà không cần chờ mail.',
+          });
+          return false;
+        }
+
         const user: User = {
           ...data.user,
           fullName: resolvedName,
@@ -241,9 +256,20 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const supabase = getSupabaseClient();
     set({ isLoading: true, error: null });
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email.trim());
+      const redirectUrl =
+        typeof window !== 'undefined' && window.location
+          ? `${window.location.origin}${window.location.pathname}`
+          : undefined;
+
+      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+        redirectTo: redirectUrl,
+      });
       if (error) {
-        set({ error: error.message, isLoading: false });
+        let msg = error.message;
+        if (error.message.includes('rate limit')) {
+          msg = 'Đã vượt quá giới hạn gửi mail của Supabase. Vui lòng thử lại sau vài phút.';
+        }
+        set({ error: msg, isLoading: false });
         return false;
       }
       set({ isLoading: false, error: null });

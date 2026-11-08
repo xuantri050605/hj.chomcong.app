@@ -15,7 +15,6 @@ import Dashboard from './screens/Dashboard';
 import AttendanceScreen from './screens/Attendance';
 import OvertimeScreen from './screens/Overtime';
 import PayrollResult from './screens/PayrollResult';
-import EmployeesScreen from './screens/Employees';
 import SalaryConfig from './screens/SalaryConfig';
 import History from './screens/History';
 import ReportsScreen from './screens/Reports';
@@ -24,6 +23,7 @@ import { useAttendanceStore } from './store/attendanceStore';
 import { useAuthStore } from './store/authStore';
 import AppHeader from './components/AppHeader';
 import AppSidebar from './components/AppSidebar';
+import MobileDrawer from './components/MobileDrawer';
 import BottomNavigation from './components/BottomNavigation';
 import AuthModal from './components/AuthModal';
 import NotificationModal from './components/NotificationModal';
@@ -49,6 +49,7 @@ export default function App() {
   });
 
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
   const [isNotifModalOpen, setIsNotifModalOpen] = useState(false);
   const [unreadNotifCount, setUnreadNotifCount] = useState(3);
   const { width } = useWindowDimensions();
@@ -128,10 +129,12 @@ export default function App() {
         const style = document.createElement('style');
         style.id = styleId;
         style.textContent = `
-          html, body, #root, input, textarea, select, button {
+          html, body, #root, input, textarea, select, button, div, span, p, h1, h2, h3, h4, h5, h6 {
             font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
             -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
+            word-break: normal;
+            overflow-wrap: normal;
           }
           [style*="font-family: Ionicons"], [style*="font-family: ionicons"] {
             font-family: Ionicons !important;
@@ -193,7 +196,11 @@ export default function App() {
 
           {/* Top Header */}
           <AppHeader
-            onToggleSidebar={isDesktop ? () => setIsSidebarCollapsed(!isSidebarCollapsed) : undefined}
+            onToggleSidebar={
+              isDesktop
+                ? () => setIsSidebarCollapsed(!isSidebarCollapsed)
+                : () => setIsMobileDrawerOpen(true)
+            }
             isSidebarCollapsed={isSidebarCollapsed}
             showLogo={!isDesktop}
             onOpenNotifications={() => setIsNotifModalOpen(true)}
@@ -201,8 +208,8 @@ export default function App() {
             onPressUser={() => openAuthModal()}
           />
 
-          {/* Breadcrumb Header when inside a subpage */}
-          {route !== 'Dashboard' && (
+          {/* Desktop Breadcrumb Header when inside a subpage */}
+          {route !== 'Dashboard' && isDesktop && (
             <View style={styles.breadcrumbBar}>
               <TouchableOpacity
                 accessibilityLabel="Quay lại Tổng quan"
@@ -222,11 +229,27 @@ export default function App() {
             </View>
           )}
 
+          {/* Mobile Clean Subpage Header */}
+          {route !== 'Dashboard' && !isDesktop && (
+            <View style={styles.mobileSubHeader}>
+              <TouchableOpacity
+                accessibilityLabel="Quay lại Tổng quan"
+                activeOpacity={0.7}
+                onPress={() => navigateTo(backToDashboard())}
+                style={styles.mobileBackBtn}
+              >
+                <Ionicons name="arrow-back" size={18} color={theme.colors.primary} />
+                <Text style={styles.mobileBackTitle}>{getRouteTitle(route)}</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
           {/* Dynamic Screen Container */}
           <View style={styles.screenScrollArea}>
             <Animated.View style={[styles.screenContainer, transitionStyle]}>
               {route === 'Dashboard' && (
                 <Dashboard
+                  onNavigate={(dest) => navigateTo(dest)}
                   onOpenAttendance={() => navigateTo('Attendance')}
                   onOpenPayroll={() => navigateTo('Payroll')}
                   onOpenNotifications={() => setIsNotifModalOpen(true)}
@@ -241,16 +264,35 @@ export default function App() {
             </Animated.View>
           </View>
 
-          {/* Mobile Bottom Navigation */}
+          {/* Sleek Mobile Bottom Navigation */}
           {!isDesktop && (
             <BottomNavigation
-              items={mobileNavItems}
-              activeKey={route}
-              onSelect={(k) => navigateTo(k as AppRoute)}
+              activeRoute={route}
+              onSelect={(selectedRoute) => {
+                if (selectedRoute === 'Menu') {
+                  setIsMobileDrawerOpen(true);
+                } else {
+                  navigateTo(selectedRoute);
+                }
+              }}
+              onOpenMenu={() => setIsMobileDrawerOpen(true)}
             />
           )}
         </View>
       </View>
+
+      {/* Slide-in Mobile Navigation Drawer */}
+      {!isDesktop && (
+        <MobileDrawer
+          isOpen={isMobileDrawerOpen}
+          onClose={() => setIsMobileDrawerOpen(false)}
+          activeRoute={route}
+          onNavigate={(newRoute) => {
+            navigateTo(newRoute);
+            setIsMobileDrawerOpen(false);
+          }}
+        />
+      )}
 
       {/* Notification Center Modal */}
       <NotificationModal
@@ -352,6 +394,25 @@ const styles = StyleSheet.create({
     color: theme.colors.slate700,
     fontSize: 12,
     fontWeight: '700',
+  },
+  mobileSubHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: theme.colors.white,
+    borderBottomWidth: 1,
+    borderColor: theme.colors.borderLight,
+  },
+  mobileBackBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  mobileBackTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: theme.colors.slate900,
   },
   screenScrollArea: {
     flex: 1,

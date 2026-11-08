@@ -610,6 +610,8 @@ const styles = StyleSheet.create({
     color: theme.colors.slate800,
     fontWeight: '600',
     flex: 1,
+    minWidth: 0,
+    paddingRight: 8,
   },
   itemRight: {
     flexDirection: 'row',

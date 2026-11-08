@@ -62,6 +62,8 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: 0.5,
     flex: 1,
+    minWidth: 0,
+    marginRight: 6,
   },
   iconBadge: {
     width: 32,

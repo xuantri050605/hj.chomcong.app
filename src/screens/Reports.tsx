@@ -81,7 +81,7 @@ export default function ReportsScreen() {
     }
   };
 
-  const kpiWidth = isDesktop ? ('23.8%' as const) : ('48.2%' as const);
+  const kpiWidth = isDesktop ? ('23.8%' as const) : width >= 380 ? ('48.2%' as const) : ('100%' as const);
 
   return (
     <View style={styles.screen}>

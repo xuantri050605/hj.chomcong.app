@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
-import { TouchableOpacity, View, Text, StyleSheet } from 'react-native';
+import { TouchableOpacity, View, Text, StyleSheet, useWindowDimensions } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../theme/theme';
 import { useSyncStore } from '../store/syncStore';
 
@@ -7,6 +8,8 @@ export default function SyncStatusBadge() {
   const syncStatus = useSyncStore((s) => s.syncStatus);
   const openSyncModal = useSyncStore((s) => s.openSyncModal);
   const setOnline = useSyncStore((s) => s.setOnline);
+  const { width } = useWindowDimensions();
+  const isCompact = width < 768;
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -28,6 +31,7 @@ export default function SyncStatusBadge() {
       case 'synced':
         return {
           label: 'Cloud Synced',
+          icon: 'cloud-done-outline' as const,
           dotColor: '#16A34A',
           bgColor: '#F0FDF4',
           borderColor: '#BBF7D0',
@@ -36,6 +40,7 @@ export default function SyncStatusBadge() {
       case 'syncing':
         return {
           label: 'Đang lưu...',
+          icon: 'cloud-upload-outline' as const,
           dotColor: theme.colors.primary,
           bgColor: '#FFF1F2',
           borderColor: '#FECDD3',
@@ -44,6 +49,7 @@ export default function SyncStatusBadge() {
       case 'error':
         return {
           label: 'Lỗi mạng',
+          icon: 'cloud-offline-outline' as const,
           dotColor: theme.colors.danger,
           bgColor: '#FEF2F2',
           borderColor: '#FCA5A5',
@@ -52,6 +58,7 @@ export default function SyncStatusBadge() {
       default:
         return {
           label: 'Offline',
+          icon: 'cloud-offline-outline' as const,
           dotColor: theme.colors.slate400,
           bgColor: theme.colors.slate100,
           borderColor: theme.colors.border,
@@ -68,6 +75,7 @@ export default function SyncStatusBadge() {
       onPress={openSyncModal}
       style={[
         styles.badge,
+        isCompact && styles.badgeCompact,
         {
           backgroundColor: indicator.bgColor,
           borderColor: indicator.borderColor,
@@ -76,8 +84,17 @@ export default function SyncStatusBadge() {
       accessibilityRole="button"
       accessibilityLabel={`Trạng thái đồng bộ máy chủ: ${indicator.label}`}
     >
-      <View style={[styles.dot, { backgroundColor: indicator.dotColor }]} />
-      <Text style={[styles.label, { color: indicator.textColor }]}>{indicator.label}</Text>
+      <Ionicons
+        name={indicator.icon}
+        size={isCompact ? 16 : 14}
+        color={indicator.textColor}
+      />
+      {!isCompact && (
+        <>
+          <View style={[styles.dot, { backgroundColor: indicator.dotColor }]} />
+          <Text style={[styles.label, { color: indicator.textColor }]}>{indicator.label}</Text>
+        </>
+      )}
     </TouchableOpacity>
   );
 }
@@ -91,6 +108,16 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     borderRadius: theme.radius.full,
     borderWidth: 1,
+    flexShrink: 0,
+  },
+  badgeCompact: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    paddingHorizontal: 0,
+    paddingVertical: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   dot: {
     width: 6,

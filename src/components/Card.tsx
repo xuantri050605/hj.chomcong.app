@@ -21,6 +21,7 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.cardBackground,
     borderRadius: theme.radius.xl,
     padding: 16,
+    minWidth: 0,
   },
   default: {
     ...theme.elevations.card,

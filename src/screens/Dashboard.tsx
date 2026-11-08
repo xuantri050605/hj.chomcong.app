@@ -7,10 +7,12 @@ import {
   View,
   Image,
   useWindowDimensions,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAttendanceStore } from '../store/attendanceStore';
 import { useSalaryStore } from '../store/salaryStore';
+import { useAuthStore } from '../store/authStore';
 import { calculatePayroll } from '../engine/payrollCalculator';
 import { buildCalendarDays } from '../engine/calendarProjection';
 import { formatVND } from '../utils/format';
@@ -37,6 +39,7 @@ export default function Dashboard({
 }: DashboardProps) {
   const { items, month, selectMonth, clockIn, clockOut } = useAttendanceStore();
   const config = useSalaryStore((state) => state.config);
+  const profile = useAuthStore((state) => state.profile);
   const { width } = useWindowDimensions();
   const isDesktop = width >= 768;
 
@@ -91,18 +94,92 @@ export default function Dashboard({
   const isClockedIn = Boolean(todayRec?.shift?.start && !todayRec?.shift?.end);
   const isClockedDone = Boolean(todayRec?.shift?.start && todayRec?.shift?.end);
 
-  const kpiWidth = isDesktop ? ('23.8%' as const) : ('48.2%' as const);
+  const kpiWidth = isDesktop ? ('23.8%' as const) : width >= 380 ? ('48.2%' as const) : ('100%' as const);
+
+  const renderClockActionCard = () => (
+    <Card style={styles.clockActionCard}>
+      <View style={[styles.clockHeader, !isDesktop && styles.clockHeaderMobile]}>
+        <View style={styles.clockLeftSection}>
+          <View
+            style={[
+              styles.clockIconBox,
+              isClockedIn && styles.clockIconBoxWorking,
+              isClockedDone && styles.clockIconBoxDone,
+            ]}
+          >
+            <Ionicons
+              name={isClockedIn ? 'radio' : isClockedDone ? 'checkmark-circle' : 'finger-print'}
+              size={22}
+              color={
+                isClockedIn
+                  ? theme.colors.warning
+                  : isClockedDone
+                  ? theme.colors.success
+                  : theme.colors.primary
+              }
+            />
+          </View>
+          <View style={styles.clockTextWrap}>
+            <Text style={styles.clockCardTitle}>
+              {isClockedIn
+                ? 'ĐANG TRONG CA LÀM VIỆC'
+                : isClockedDone
+                ? 'CA HÔM NAY ĐÃ HOÀN TẤT'
+                : 'CHẤM CÔNG HÔM NAY'}
+            </Text>
+            <Text style={styles.clockCardDesc}>
+              {isClockedIn
+                ? `Đã vào ca lúc ${todayRec?.shift?.start}. Đừng quên bấm kết thúc ca khi ra về!`
+                : isClockedDone
+                ? `Thời gian: ${todayRec?.shift?.start} → ${todayRec?.shift?.end}. Ca làm đã được ghi nhận vào bảng lương.`
+                : 'Ghi nhận giờ vào ca làm việc tiêu chuẩn HOJEONG (08:00 - 17:00).'}
+            </Text>
+          </View>
+        </View>
+        <View style={!isDesktop ? styles.clockButtonFull : styles.clockButtonDesktop}>
+          {isClockedIn ? (
+            <Button
+              title="KẾT THÚC CA (CHECK-OUT)"
+              variant="danger"
+              size="md"
+              icon={<Ionicons name="log-out-outline" size={18} color={theme.colors.white} />}
+              onPress={() => void clockOut()}
+              style={!isDesktop ? { width: '100%' } : undefined}
+            />
+          ) : isClockedDone ? (
+            <Button
+              title="Xem chi tiết ca"
+              variant="secondary"
+              size="md"
+              icon={<Ionicons name="eye-outline" size={18} color={theme.colors.slate700} />}
+              onPress={() => handleQuickNav('Attendance')}
+              style={!isDesktop ? { width: '100%' } : undefined}
+            />
+          ) : (
+            <Button
+              title="VÀO CA NGAY (CHECK-IN)"
+              variant="primary"
+              size="md"
+              icon={<Ionicons name="log-in-outline" size={18} color={theme.colors.white} />}
+              onPress={() => void clockIn()}
+              style={!isDesktop ? { width: '100%' } : undefined}
+            />
+          )}
+        </View>
+      </View>
+    </Card>
+  );
 
   return (
     <View style={styles.screen}>
       <ScrollView
         style={styles.scrollArea}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, !isDesktop && styles.contentMobile]}
         showsVerticalScrollIndicator={false}
       >
-        {/* Top Corporate Branding Banner with Factory Architecture */}
-        <View style={styles.corporateBanner}>
-          <View style={styles.bannerLeft}>
+        {/* Corporate Branding Banner with Factory Architecture - Always Visible */}
+        <View style={[styles.corporateBanner, !isDesktop && styles.corporateBannerMobile]}>
+          <View style={[styles.bannerLeft, !isDesktop && styles.bannerLeftMobile]}>
             <View style={styles.badgeRow}>
               <View style={styles.corpBadge}>
                 <Text style={styles.corpBadgeText}>HOJEONG ENTERPRISE</Text>
@@ -119,7 +196,7 @@ export default function Dashboard({
               Hệ thống quản lý nhân sự & công lương doanh nghiệp
             </Text>
 
-            {/* Feature Pills from Reference Mockup */}
+            {/* Feature Pills */}
             <View style={styles.featurePillsRow}>
               <View style={styles.featurePill}>
                 <Ionicons name="flash" size={13} color={theme.colors.primary} />
@@ -140,9 +217,14 @@ export default function Dashboard({
             </View>
           </View>
 
-          {/* Right: Modern HOJEONG Factory Banner */}
+          {/* Right/Bottom: Modern HOJEONG Factory Banner Image */}
           <View style={[styles.bannerRight, !isDesktop && styles.bannerRightMobile]}>
-            <View style={[styles.factoryImageWrapper, !isDesktop && styles.factoryImageWrapperMobile]}>
+            <View
+              style={[
+                styles.factoryImageWrapper,
+                !isDesktop && styles.factoryImageWrapperMobile,
+              ]}
+            >
               <Image
                 source={require('../../assets/images/hojeong_factory_banner.jpg')}
                 style={styles.factoryImage}
@@ -156,6 +238,67 @@ export default function Dashboard({
             </View>
           </View>
         </View>
+
+        {/* Mobile View: Sleek Modern Hero Greeting */}
+        {!isDesktop && (
+          <View style={styles.mobileHeroCard}>
+            <View style={styles.mobileHeroTop}>
+              <View style={styles.mobileAvatarBox}>
+                <Ionicons name="person" size={20} color={theme.colors.primary} />
+              </View>
+              <View style={styles.mobileHeroTextWrap}>
+                <Text style={styles.mobileGreetingText} numberOfLines={1}>
+                  Xin chào, {profile?.fullName || 'bạn'}! 👋
+                </Text>
+                <Text style={styles.mobileDateText}>
+                  {new Date().toLocaleDateString('vi-VN', {
+                    weekday: 'long',
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric',
+                  })}{' '}
+                  • HOJEONG
+                </Text>
+              </View>
+              <View
+                style={[
+                  styles.mobileShiftBadge,
+                  isClockedIn
+                    ? styles.badgeWorking
+                    : isClockedDone
+                    ? styles.badgeDone
+                    : styles.badgeIdle,
+                ]}
+              >
+                <View
+                  style={[
+                    styles.statusDot,
+                    isClockedIn
+                      ? styles.dotWorking
+                      : isClockedDone
+                      ? styles.dotDone
+                      : styles.dotIdle,
+                  ]}
+                />
+                <Text
+                  style={[
+                    styles.statusText,
+                    isClockedIn
+                      ? styles.textWorking
+                      : isClockedDone
+                      ? styles.textDone
+                      : styles.textIdle,
+                  ]}
+                >
+                  {isClockedIn ? 'Đang làm' : isClockedDone ? 'Xong ca' : 'Chưa vào'}
+                </Text>
+              </View>
+            </View>
+          </View>
+        )}
+
+        {/* Priority Check-in Action Card on Mobile (First Thing Worker Sees!) */}
+        {!isDesktop && renderClockActionCard()}
 
         {/* Month Selector */}
         <MonthSelector month={month} onChange={selectMonth} />
@@ -203,59 +346,8 @@ export default function Dashboard({
           </View>
         </View>
 
-        {/* Section C: Chấm công ngay (Prominent Primary Action) */}
-        <Card style={styles.clockActionCard}>
-          <View style={styles.clockHeader}>
-            <View style={styles.clockIconBox}>
-              <Ionicons
-                name={isClockedIn ? 'radio' : isClockedDone ? 'checkmark-circle' : 'finger-print'}
-                size={22}
-                color={isClockedIn ? theme.colors.warning : isClockedDone ? theme.colors.success : theme.colors.primary}
-              />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.clockCardTitle}>
-                {isClockedIn
-                  ? 'ĐANG TRONG CA LÀM VIỆC'
-                  : isClockedDone
-                  ? 'CA HÔM NAY ĐÃ HOÀN TẤT'
-                  : 'CHẤM CÔNG HÔM NAY'}
-              </Text>
-              <Text style={styles.clockCardDesc}>
-                {isClockedIn
-                  ? `Đã vào ca lúc ${todayRec?.shift?.start}. Đừng quên bấm kết thúc ca khi ra về!`
-                  : isClockedDone
-                  ? `Thời gian: ${todayRec?.shift?.start} → ${todayRec?.shift?.end}. Ca làm đã được ghi nhận vào bảng lương.`
-                  : 'Ghi nhận giờ vào ca làm việc tiêu chuẩn HOJEONG (08:00 - 17:00).'}
-              </Text>
-            </View>
-            {isClockedIn ? (
-              <Button
-                title="KẾT THÚC CA (CHECK-OUT)"
-                variant="danger"
-                size="md"
-                icon={<Ionicons name="log-out-outline" size={18} color={theme.colors.white} />}
-                onPress={() => void clockOut()}
-              />
-            ) : isClockedDone ? (
-              <Button
-                title="Xem chi tiết ca"
-                variant="secondary"
-                size="md"
-                icon={<Ionicons name="eye-outline" size={18} color={theme.colors.slate700} />}
-                onPress={() => handleQuickNav('Attendance')}
-              />
-            ) : (
-              <Button
-                title="VÀO CA NGAY (CHECK-IN)"
-                variant="primary"
-                size="md"
-                icon={<Ionicons name="log-in-outline" size={18} color={theme.colors.white} />}
-                onPress={() => void clockIn()}
-              />
-            )}
-          </View>
-        </Card>
+        {/* Desktop Check-in Action Card Placement */}
+        {isDesktop && renderClockActionCard()}
 
         {/* 2-Column Desktop Grid for Section A & Section D */}
         <View style={isDesktop ? styles.rowCols : styles.colStack}>
@@ -527,6 +619,117 @@ const styles = StyleSheet.create({
     gap: 14,
     paddingBottom: 32,
   },
+  contentMobile: {
+    padding: 12,
+    gap: 12,
+    paddingBottom: 85,
+  },
+  mobileHeroCard: {
+    backgroundColor: theme.colors.white,
+    padding: 14,
+    borderRadius: theme.radius.xl,
+    borderWidth: 1,
+    borderColor: theme.colors.borderLight,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#0F172A',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.04,
+        shadowRadius: 6,
+      },
+      android: {
+        elevation: 2,
+      },
+      web: {
+        boxShadow: '0 2px 8px rgba(15, 23, 42, 0.04)',
+      },
+    }),
+  },
+  mobileHeroTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  mobileAvatarBox: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: theme.colors.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: theme.colors.primaryBorder,
+  },
+  mobileHeroTextWrap: {
+    flex: 1,
+    minWidth: 0,
+  },
+  mobileGreetingText: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: theme.colors.slate900,
+    letterSpacing: -0.2,
+  },
+  mobileDateText: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: theme.colors.slate500,
+    marginTop: 2,
+  },
+  mobileShiftBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: theme.radius.full,
+    borderWidth: 1,
+  },
+  badgeWorking: {
+    backgroundColor: '#ECFDF5',
+    borderColor: '#A7F3D0',
+  },
+  badgeDone: {
+    backgroundColor: '#EFF6FF',
+    borderColor: '#BFDBFE',
+  },
+  badgeIdle: {
+    backgroundColor: '#FFFBEB',
+    borderColor: '#FDE68A',
+  },
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  dotWorking: {
+    backgroundColor: theme.colors.success,
+  },
+  dotDone: {
+    backgroundColor: theme.colors.purple,
+  },
+  dotIdle: {
+    backgroundColor: theme.colors.warning,
+  },
+  statusText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  textWorking: {
+    color: theme.colors.successDark,
+  },
+  textDone: {
+    color: theme.colors.purple,
+  },
+  textIdle: {
+    color: theme.colors.warningDark,
+  },
+  clockIconBoxWorking: {
+    backgroundColor: '#FEF3C7',
+  },
+  clockIconBoxDone: {
+    backgroundColor: '#D1FAE5',
+  },
   corporateBanner: {
     backgroundColor: theme.colors.white,
     padding: 16,
@@ -539,9 +742,18 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 12,
   },
+  corporateBannerMobile: {
+    padding: 14,
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    gap: 12,
+  },
   bannerLeft: {
     flex: 1,
     minWidth: 260,
+  },
+  bannerLeftMobile: {
+    minWidth: '100%',
   },
   badgeRow: {
     flexDirection: 'row',
@@ -681,12 +893,29 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: theme.colors.primaryBorder,
     backgroundColor: theme.colors.white,
+    minWidth: 0,
   },
   clockHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: 16,
+  },
+  clockHeaderMobile: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
     gap: 12,
+  },
+  clockLeftSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+    minWidth: 0,
+  },
+  clockTextWrap: {
+    flex: 1,
+    minWidth: 0,
   },
   clockIconBox: {
     width: 44,
@@ -695,17 +924,26 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
+    flexShrink: 0,
   },
   clockCardTitle: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '800',
     color: theme.colors.slate900,
-    letterSpacing: 0.5,
+    letterSpacing: 0.3,
   },
   clockCardDesc: {
     fontSize: 12,
     color: theme.colors.slate600,
     marginTop: 2,
+    lineHeight: 16,
+  },
+  clockButtonDesktop: {
+    flexShrink: 0,
+  },
+  clockButtonFull: {
+    width: '100%',
+    marginTop: 4,
   },
   rowCols: {
     flexDirection: 'row',

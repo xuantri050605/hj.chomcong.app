@@ -43,7 +43,10 @@ export interface SupabaseAuthClient {
   }) => Promise<{ data: { user: User | null; session: Session | null }; error: Error | null }>;
   signOut: () => Promise<{ error: Error | null }>;
   getSession: () => Promise<{ data: { session: Session | null }; error: Error | null }>;
-  resetPasswordForEmail: (email: string) => Promise<{ data: any; error: Error | null }>;
+  resetPasswordForEmail: (
+    email: string,
+    options?: { redirectTo?: string }
+  ) => Promise<{ data: any; error: Error | null }>;
   onAuthStateChange: (callback: AuthChangeEvent) => { data: { subscription: { unsubscribe: () => void } } };
 }
 
@@ -250,7 +253,7 @@ export class LocalFallbackSupabaseClient implements SupabaseClient {
       }
     },
 
-    resetPasswordForEmail: async (email: string) => {
+    resetPasswordForEmail: async (email: string, _options?: { redirectTo?: string }) => {
       const trimmedEmail = (email || '').trim().toLowerCase();
       const registry = await this.loadUsersRegistry();
       if (!registry.has(trimmedEmail)) {

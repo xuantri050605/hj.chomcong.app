@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   Modal,
   View,
@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   ScrollView,
   Platform,
+  useWindowDimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../theme/theme';
@@ -34,6 +35,43 @@ export default function PayslipModal({
 }: PayslipModalProps) {
   const currentDate = new Date().toLocaleDateString('vi-VN');
   const netAmountWords = numberToVietnameseWords(payroll.net);
+  const { width } = useWindowDimensions();
+  const isMobile = width < 600;
+
+  useEffect(() => {
+    if (Platform.OS === 'web' && typeof document !== 'undefined') {
+      const styleId = 'hojeong-payslip-print-styles';
+      if (!document.getElementById(styleId)) {
+        const style = document.createElement('style');
+        style.id = styleId;
+        style.textContent = `
+          @media print {
+            body * {
+              visibility: hidden !important;
+            }
+            #hojeong-printable-payslip, #hojeong-printable-payslip * {
+              visibility: visible !important;
+            }
+            #hojeong-printable-payslip {
+              position: absolute !important;
+              left: 0 !important;
+              top: 0 !important;
+              width: 100% !important;
+              max-width: 100% !important;
+              padding: 16px !important;
+              box-shadow: none !important;
+              border: none !important;
+            }
+            .no-print, [data-no-print="true"] {
+              display: none !important;
+              visibility: hidden !important;
+            }
+          }
+        `;
+        document.head.appendChild(style);
+      }
+    }
+  }, []);
 
   const handlePrint = () => {
     if (Platform.OS === 'web' && typeof window !== 'undefined') {
@@ -44,12 +82,32 @@ export default function PayslipModal({
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={styles.backdrop}>
+        {/* Click outside to close / exit */}
+        <TouchableOpacity
+          style={StyleSheet.absoluteFillObject}
+          activeOpacity={1}
+          onPress={onClose}
+        />
+
         <View style={styles.modalCard}>
           {/* Action Bar (Top) */}
           <View style={styles.actionBar}>
             <View style={styles.actionBarLeft}>
-              <Ionicons name="document-text" size={20} color={theme.colors.primary} />
-              <Text style={styles.actionBarTitle}>XEM TRƯỚC PHIẾU LƯƠNG HOJEONG</Text>
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={onClose}
+                style={styles.exitTopBtn}
+                accessibilityRole="button"
+                accessibilityLabel="Thoát phiếu lương"
+              >
+                <Ionicons name="arrow-back" size={17} color={theme.colors.slate800} />
+                <Text style={styles.exitTopBtnText}>Thoát</Text>
+              </TouchableOpacity>
+              <View style={styles.headerSeparator} />
+              <Ionicons name="document-text" size={18} color={theme.colors.primary} />
+              <Text style={styles.actionBarTitle} numberOfLines={1}>
+                {isMobile ? `Phiếu lương ${month}` : `XEM TRƯỚC PHIẾU LƯƠNG HOJEONG – THÁNG ${month}`}
+              </Text>
             </View>
             <View style={styles.actionBarRight}>
               <TouchableOpacity
@@ -59,8 +117,8 @@ export default function PayslipModal({
                 accessibilityRole="button"
                 accessibilityLabel="In hoặc Tải Phiếu Lương PDF"
               >
-                <Ionicons name="print-outline" size={17} color={theme.colors.white} />
-                <Text style={styles.printBtnText}>In / Xuất PDF</Text>
+                <Ionicons name="print-outline" size={16} color={theme.colors.white} />
+                <Text style={styles.printBtnText}>{isMobile ? 'In PDF' : 'In / Xuất PDF'}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 activeOpacity={0.7}
@@ -295,8 +353,58 @@ export default function PayslipModal({
                   * Mọi thắc mắc về số công, hệ số tăng ca và các khoản khấu trừ, vui lòng gửi phản hồi tới phòng Nhân sự trong vòng 03 ngày làm việc kể từ ngày nhận phiếu.
                 </Text>
               </View>
+
+              {/* In-Page Action & Exit Buttons (Hidden in print) */}
+              <View style={styles.inPaperExitSection}>
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={onClose}
+                  style={styles.inPaperExitBtn}
+                  accessibilityRole="button"
+                  accessibilityLabel="Thoát xem phiếu lương"
+                >
+                  <Ionicons name="arrow-back-circle-outline" size={20} color={theme.colors.slate700} />
+                  <Text style={styles.inPaperExitBtnText}>Thoát xem phiếu lương</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  onPress={handlePrint}
+                  style={styles.inPaperPrintBtn}
+                  accessibilityRole="button"
+                  accessibilityLabel="In phiếu lương này"
+                >
+                  <Ionicons name="print-outline" size={18} color={theme.colors.white} />
+                  <Text style={styles.inPaperPrintBtnText}>In / Xuất PDF</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </ScrollView>
+
+          {/* Bottom Sticky Action Bar */}
+          <View style={styles.bottomStickyBar}>
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={onClose}
+              style={styles.stickyExitBtn}
+              accessibilityRole="button"
+              accessibilityLabel="Thoát trang phiếu lương"
+            >
+              <Ionicons name="arrow-back" size={17} color={theme.colors.slate700} />
+              <Text style={styles.stickyExitBtnText}>Thoát trang</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={handlePrint}
+              style={styles.stickyPrintBtn}
+              accessibilityRole="button"
+              accessibilityLabel="In hoặc Tải Phiếu Lương PDF"
+            >
+              <Ionicons name="print-outline" size={17} color={theme.colors.white} />
+              <Text style={styles.stickyPrintBtnText}>In / Tải Phiếu Lương</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
     </Modal>
@@ -336,17 +444,45 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    flex: 1,
+    minWidth: 0,
+  },
+  exitTopBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: theme.colors.white,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    borderRadius: theme.radius.md,
+    flexShrink: 0,
+  },
+  exitTopBtnText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: theme.colors.slate800,
+  },
+  headerSeparator: {
+    width: 1,
+    height: 18,
+    backgroundColor: theme.colors.border,
+    marginHorizontal: 2,
+    flexShrink: 0,
   },
   actionBarTitle: {
     fontSize: 13,
     fontWeight: '900',
     color: theme.colors.slate900,
     letterSpacing: 0.5,
+    flexShrink: 1,
   },
   actionBarRight: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
+    flexShrink: 0,
   },
   printBtn: {
     flexDirection: 'row',
@@ -649,5 +785,89 @@ const styles = StyleSheet.create({
     color: theme.colors.slate400,
     fontStyle: 'italic',
     lineHeight: 14,
+  },
+  inPaperExitSection: {
+    marginTop: 24,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.borderLight,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    flexWrap: 'wrap',
+  },
+  inPaperExitBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: theme.colors.slate100,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: theme.radius.md,
+  },
+  inPaperExitBtnText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: theme.colors.slate700,
+  },
+  inPaperPrintBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: theme.colors.primary,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: theme.radius.md,
+  },
+  inPaperPrintBtnText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: theme.colors.white,
+  },
+  bottomStickyBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: theme.colors.white,
+    borderTopWidth: 1,
+    borderColor: theme.colors.border,
+    gap: 10,
+  },
+  stickyExitBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: theme.colors.slate100,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    paddingVertical: 10,
+    borderRadius: theme.radius.md,
+  },
+  stickyExitBtnText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: theme.colors.slate700,
+  },
+  stickyPrintBtn: {
+    flex: 1.2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: theme.colors.primary,
+    paddingVertical: 10,
+    borderRadius: theme.radius.md,
+  },
+  stickyPrintBtnText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: theme.colors.white,
   },
 });

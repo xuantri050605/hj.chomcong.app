@@ -40,21 +40,22 @@ export default function AppHeader({
   };
 
   return (
-    <View style={styles.header}>
+    <View style={[styles.header, { paddingHorizontal: width < 420 ? 12 : 16 }]}>
       <View style={styles.headerInner}>
-        {/* Left: Sidebar Toggle & optional Brand */}
+        {/* Left: Sidebar / Drawer Toggle & Brand */}
         <View style={styles.leftSection}>
           {onToggleSidebar && (
             <TouchableOpacity
               activeOpacity={0.7}
               onPress={onToggleSidebar}
               style={styles.iconButton}
-              accessibilityLabel="Mở/Đóng thanh điều hướng"
+              accessibilityLabel="Mở menu điều hướng"
+              accessibilityRole="button"
             >
               <Ionicons
-                name={isSidebarCollapsed ? 'menu-outline' : 'menu'}
+                name={isDesktop && isSidebarCollapsed ? 'menu-outline' : 'menu'}
                 size={22}
-                color={theme.colors.slate700}
+                color={theme.colors.slate800}
               />
             </TouchableOpacity>
           )}
@@ -86,7 +87,7 @@ export default function AppHeader({
         )}
 
         {/* Right Section: System Actions & Auth */}
-        <View style={styles.rightSection}>
+        <View style={[styles.rightSection, width < 420 && { gap: 6 }]}>
           {/* Live Cloud Sync Status Badge */}
           <SyncStatusBadge />
 
@@ -102,7 +103,7 @@ export default function AppHeader({
                 : 'Thông báo hệ thống'
             }
           >
-            <Ionicons name="notifications-outline" size={20} color={theme.colors.slate700} />
+            <Ionicons name="notifications-outline" size={19} color={theme.colors.slate700} />
             {unreadCount !== 0 && (
               <View style={unreadCount ? styles.notifBadgeWithCount : styles.notifBadge}>
                 {typeof unreadCount === 'number' && unreadCount > 0 && (
@@ -112,15 +113,17 @@ export default function AppHeader({
             )}
           </TouchableOpacity>
 
-          {/* Help Button */}
-          <TouchableOpacity
-            activeOpacity={0.7}
-            onPress={onOpenHelp}
-            style={styles.iconButton}
-            accessibilityLabel="Trợ giúp hệ thống"
-          >
-            <Ionicons name="help-circle-outline" size={20} color={theme.colors.slate700} />
-          </TouchableOpacity>
+          {/* Help Button (Shown when width >= 500) */}
+          {width >= 500 && (
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={onOpenHelp}
+              style={styles.iconButton}
+              accessibilityLabel="Trợ giúp hệ thống"
+            >
+              <Ionicons name="help-circle-outline" size={19} color={theme.colors.slate700} />
+            </TouchableOpacity>
+          )}
 
           {/* Account / Auth Button */}
           <TouchableOpacity
@@ -149,7 +152,7 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.white,
     borderBottomWidth: 1,
     borderColor: theme.colors.border,
-    height: 60,
+    height: 58,
     justifyContent: 'center',
     paddingHorizontal: 16,
     zIndex: 30,
@@ -177,10 +180,12 @@ const styles = StyleSheet.create({
   leftSection: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 8,
+    flexShrink: 1,
+    minWidth: 0,
   },
   mobileLogoWrap: {
-    marginLeft: 4,
+    marginLeft: 2,
   },
   searchSection: {
     flex: 1,
@@ -229,6 +234,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    flexShrink: 0,
+    marginRight: 2,
   },
   iconButton: {
     width: 36,
@@ -238,6 +245,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     position: 'relative',
     backgroundColor: theme.colors.slate50,
+    flexShrink: 0,
   },
   notifBadge: {
     position: 'absolute',
@@ -269,7 +277,7 @@ const styles = StyleSheet.create({
     lineHeight: 11,
   },
   accountBtn: {
-    marginLeft: 4,
+    flexShrink: 0,
   },
   avatarBox: {
     width: 36,
@@ -280,6 +288,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 1,
     borderColor: theme.colors.border,
+    flexShrink: 0,
   },
   avatarBoxActive: {
     backgroundColor: theme.colors.primary,

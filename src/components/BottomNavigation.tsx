@@ -2,73 +2,121 @@ import React from 'react';
 import { View, TouchableOpacity, Text, StyleSheet, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../theme/theme';
-
-export interface NavItem {
-  key: string;
-  label: string;
-}
+import { AppRoute } from '../utils/navigationState';
 
 export interface BottomNavigationProps {
-  items: NavItem[];
-  activeKey?: string;
-  onSelect: (key: string) => void;
+  activeRoute: AppRoute;
+  onSelect: (route: AppRoute | 'Menu') => void;
+  onOpenMenu?: () => void;
 }
 
-const getTabIcon = (key: string, isActive: boolean): keyof typeof Ionicons.glyphMap => {
-  switch (key) {
-    case 'Dashboard':
-      return isActive ? 'home' : 'home-outline';
-    case 'Attendance':
-      return isActive ? 'calendar' : 'calendar-outline';
-    case 'Overtime':
-      return isActive ? 'time' : 'time-outline';
-    case 'Payroll':
-      return isActive ? 'layers' : 'layers-outline';
-    case 'Salary':
-      return isActive ? 'settings' : 'settings-outline';
-    case 'History':
-      return isActive ? 'time' : 'time-outline';
-    case 'Reports':
-      return isActive ? 'stats-chart' : 'stats-chart-outline';
-    default:
-      return isActive ? 'apps' : 'apps-outline';
-  }
-};
+interface TabConfig {
+  key: AppRoute | 'Menu';
+  label: string;
+  activeIcon: keyof typeof Ionicons.glyphMap;
+  inactiveIcon: keyof typeof Ionicons.glyphMap;
+}
 
-export default function BottomNavigation({ items, activeKey, onSelect }: BottomNavigationProps) {
+export const BOTTOM_TABS: TabConfig[] = [
+  {
+    key: 'Dashboard',
+    label: 'Tổng quan',
+    activeIcon: 'home',
+    inactiveIcon: 'home-outline',
+  },
+  {
+    key: 'Attendance',
+    label: 'Chấm công',
+    activeIcon: 'calendar',
+    inactiveIcon: 'calendar-outline',
+  },
+  {
+    key: 'Overtime',
+    label: 'Tăng ca',
+    activeIcon: 'time',
+    inactiveIcon: 'time-outline',
+  },
+  {
+    key: 'Payroll',
+    label: 'Bảng lương',
+    activeIcon: 'wallet',
+    inactiveIcon: 'wallet-outline',
+  },
+  {
+    key: 'Menu',
+    label: 'Thêm',
+    activeIcon: 'grid',
+    inactiveIcon: 'grid-outline',
+  },
+];
+
+export default function BottomNavigation({
+  activeRoute,
+  onSelect,
+  onOpenMenu,
+}: BottomNavigationProps) {
+  // If user is in an extended subpage (Salary, History, Reports), highlight the 'Menu' tab
+  const isExtendedMenuRoute =
+    activeRoute === 'Salary' || activeRoute === 'History' || activeRoute === 'Reports';
+
+  const handlePress = (key: AppRoute | 'Menu') => {
+    if (key === 'Menu') {
+      if (onOpenMenu) {
+        onOpenMenu();
+      } else {
+        onSelect('Menu');
+      }
+    } else {
+      onSelect(key);
+    }
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.bar}>
-        {items.map((it) => {
-          const isActive = activeKey === it.key;
-          const iconName = getTabIcon(it.key, isActive);
+        {BOTTOM_TABS.map((tab) => {
+          const isActive =
+            tab.key === 'Menu'
+              ? isExtendedMenuRoute
+              : activeRoute === tab.key;
+
+          const iconName = isActive ? tab.activeIcon : tab.inactiveIcon;
 
           return (
             <TouchableOpacity
-              key={it.key}
+              key={tab.key}
               accessibilityRole="tab"
+              accessibilityLabel={tab.label}
               accessibilityState={{ selected: isActive }}
-              style={styles.item}
-              activeOpacity={0.7}
-              onPress={() => onSelect(it.key)}
+              style={styles.tabItem}
+              activeOpacity={0.65}
+              onPress={() => handlePress(tab.key)}
             >
-              <View style={[styles.iconWrapper, isActive && styles.activeIconWrapper]}>
+              {/* Active Top Glow/Indicator Bar */}
+              {isActive && <View style={styles.activeTopBar} />}
+
+              <View
+                style={[
+                  styles.iconContainer,
+                  isActive && styles.activeIconContainer,
+                ]}
+              >
                 <Ionicons
                   name={iconName}
                   size={20}
                   color={isActive ? theme.colors.primary : theme.colors.slate500}
                 />
               </View>
+
               <Text
                 style={[
-                  styles.label,
-                  isActive && styles.activeLabel,
+                  styles.tabLabel,
+                  isActive && styles.activeTabLabel,
                 ]}
                 numberOfLines={1}
               >
-                {it.label}
+                {tab.label}
               </Text>
-              {isActive && <View style={styles.activeDot} />}
             </TouchableOpacity>
           );
         })}
@@ -81,72 +129,72 @@ const styles = StyleSheet.create({
   container: {
     backgroundColor: theme.colors.white,
     borderTopWidth: 1,
-    borderColor: theme.colors.border,
+    borderColor: '#F1F5F9',
     flexShrink: 0,
-    zIndex: 50,
+    zIndex: 90,
     width: '100%',
     ...Platform.select({
       ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: -2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 6,
+        shadowColor: '#0F172A',
+        shadowOffset: { width: 0, height: -3 },
+        shadowOpacity: 0.06,
+        shadowRadius: 8,
       },
       android: {
-        elevation: 8,
+        elevation: 12,
       },
       web: {
-        boxShadow: '0 -2px 10px rgba(0,0,0,0.03)',
+        boxShadow: '0 -3px 16px rgba(15, 23, 42, 0.06)',
         position: 'sticky' as any,
         bottom: 0,
       },
     }),
   },
   bar: {
-    height: 64,
-    maxWidth: 1440,
+    height: Platform.OS === 'ios' ? 74 : 60,
     width: '100%',
-    alignSelf: 'center',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-around',
     paddingHorizontal: 4,
-    paddingBottom: Platform.OS === 'ios' ? 6 : 2,
+    paddingBottom: Platform.OS === 'ios' ? 16 : 4,
   },
-  item: {
+  tabItem: {
     flex: 1,
+    height: '100%',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 4,
     position: 'relative',
+    paddingVertical: 4,
   },
-  iconWrapper: {
-    width: 40,
+  activeTopBar: {
+    position: 'absolute',
+    top: 0,
+    width: 28,
+    height: 3,
+    backgroundColor: theme.colors.primary,
+    borderBottomLeftRadius: 3,
+    borderBottomRightRadius: 3,
+  },
+  iconContainer: {
+    width: 36,
     height: 28,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: theme.radius.full,
     marginBottom: 2,
   },
-  activeIconWrapper: {
+  activeIconContainer: {
     backgroundColor: theme.colors.primarySoft,
   },
-  label: {
+  tabLabel: {
     fontSize: 10,
     color: theme.colors.slate500,
     fontWeight: '600',
     letterSpacing: 0.1,
   },
-  activeLabel: {
+  activeTabLabel: {
     color: theme.colors.primary,
     fontWeight: '800',
-  },
-  activeDot: {
-    position: 'absolute',
-    bottom: 2,
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: theme.colors.primary,
   },
 });
